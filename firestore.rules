@@ -1,0 +1,75 @@
+rules_version = '2';
+
+// 客戶經營名單｜Firestore 權限規則
+// ─────────────────────────────────────────────
+// admins/{uid}                 管理員名單（只能在 Firebase 主控台手動新增）
+// users/{uid}                  業務帳號資料（status: pending 待開通 / active 已開通 / disabled 已停用）
+// users/{uid}/clients/{cid}    該業務的客戶名單
+//
+// 原則：
+// 1. 業務只能讀寫「自己」的帳號資料與名單，看不到其他業務。
+// 2. 新註冊的帳號一律是「待開通」，必須由管理員在後台開通後才能建立名單。
+// 3. 管理員可以讀取所有業務的帳號與名單，並可開通／停用帳號；但不能代替業務修改名單內容。
+// 4. 帳號被停用後，業務無法再讀寫名單，但名單仍保留給管理員檢視。
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+    function isActive(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid))
+        && get(/databases/$(database)/documents/users/$(uid)).data.status == 'active';
+    }
+    function ownEmail() {
+      return request.resource.data.email == request.auth.token.email;
+    }
+
+    // 管理員名單：本人可確認自己是否為管理員；任何人都不能從網頁寫入
+    match /admins/{uid} {
+      allow read: if isSelf(uid);
+      allow write: if false;
+    }
+
+    // 業務帳號資料
+    match /users/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+
+      // 首次登入建立帳號：只能建立自己的，狀態必須是待開通
+      allow create: if isSelf(uid)
+        && request.resource.data.status == 'pending'
+        && ownEmail();
+
+      // 本人可更新姓名等資料，但不能改自己的開通狀態；管理員可更新任何人的狀態
+      allow update: if isAdmin()
+        || (isSelf(uid)
+            && request.resource.data.status == resource.data.status
+            && ownEmail());
+
+      allow delete: if isAdmin();
+
+      // 客戶名單：本人且已開通才能讀寫；管理員唯讀
+      match /clients/{cid} {
+        allow read: if isAdmin() || (isSelf(uid) && isActive(uid));
+        allow create, update: if isSelf(uid) && isActive(uid)
+          && request.resource.data.ownerUid == uid
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0;
+        allow delete: if isSelf(uid) && isActive(uid);
+      }
+    }
+
+    // 管理員後台一次讀取全團隊名單（collection group 查詢）
+    match /{path=**}/clients/{cid} {
+      allow read: if isAdmin();
+    }
+  }
+}
