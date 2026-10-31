@@ -106,6 +106,10 @@ select.sel{padding:8px 30px 8px 10px;border:1px solid var(--line-2);border-radiu
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 16px 14px;text-align:left;display:flex;flex-direction:column;gap:10px;transition:border-color .15s,box-shadow .15s;min-width:0;width:100%}
 .card:hover{border-color:var(--line-2);box-shadow:var(--shadow)}
+.card{position:relative}
+.card-del{position:absolute;top:5px;right:6px;width:20px;height:20px;display:grid;place-items:center;border-radius:50%;font-size:15px;line-height:1;color:var(--muted);opacity:.55;transition:opacity .15s,color .15s,background .15s}
+.card-del:hover{opacity:1;color:var(--bad);background:var(--bad-soft)}
+.card-del+.card-head .score{padding-top:10px}
 .card-head{display:flex;gap:12px;align-items:flex-start}
 .grade{flex:none;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-num);font-weight:700;font-size:22px;border:1.5px solid currentColor;line-height:1}
 .grade[data-g="S"]{color:var(--gS);background:var(--gold-soft)}

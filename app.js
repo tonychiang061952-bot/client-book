@@ -307,6 +307,7 @@ function cardHtml(c){
   const disc=c.disc?`<span class="pill disc">${esc(c.disc)}</span>`:"";
   const tags=arr(c.tags).slice(0,3).map(t=>`<span class="pill tag">${esc(t)}</span>`).join("");
   return `<button type="button" class="card" data-id="${esc(keyOf(c))}">
+    ${readOnly()?"":`<span class="card-del" data-del-client="${esc(c.id)}" role="button" aria-label="刪除 ${esc(c.name||"此客戶")}" title="刪除">×</span>`}
     <div class="card-head">
       <div class="grade" data-g="${g}">${g||"未評"}</div>
       <div class="who"><div class="name">${esc(c.name||"（未命名）")}<span class="no">No.${esc(c.no||"-")}</span>${c.demo?'<span class="demo-flag">示範</span>':""}</div><div class="meta">${esc(metaLine(c))||"&nbsp;"}</div></div>
@@ -333,6 +334,8 @@ function renderList(){
   area.innerHTML=list.length?`<div class="grid">${list.map(cardHtml).join("")}</div>`:`<div class="empty"><h3>沒有符合條件的客戶</h3><p>調整搜尋字詞或篩選條件看看。</p></div>`;
 }
 document.addEventListener("click",e=>{
+  const del=e.target.closest("[data-del-client]");
+  if(del){const id=del.dataset.delClient,c=Ctx.my.get(id);showConfirm("刪除「"+(c&&c.name||"此客戶")+"」？","客戶資料與所有跟進紀錄都會刪除，無法復原。","確認刪除",async()=>{if(await removeClient(id))toast("已刪除")},true);return}
   const card=e.target.closest(".card[data-id], .alist button[data-id]");
   if(card){openClient(card.dataset.id,"ins");return}
   const row=e.target.closest("tr[data-uid]");
