@@ -270,7 +270,7 @@ function renderSummary(){
       <div class="dist-legend"><span><b style="color:var(--gS)">${g.S}</b>S</span><span><b style="color:var(--gA)">${g.A}</b>A</span><span><b style="color:var(--gB)">${g.B}</b>B</span><span><b style="color:var(--gC)">${g.C}</b>C</span>${g[""]?`<span><b>${g[""]}</b>未評</span>`:""}</div></div>
     <div class="stat"><div class="k">7 天內待跟進</div><div class="v num">${due}<small>位</small></div></div>
     <div class="stat"><div class="k">已逾期未聯絡</div><div class="v num ${over?"alert":""}">${over}<small>位</small></div></div>
-    <div class="stat"><div class="k">30 天內壽星</div><div class="v num">${bd}<small>位</small></div></div>
+    <button type="button" class="stat stat-btn" data-act="bday"><div class="k">30 天內壽星</div><div class="v num">${bd}<small>位</small></div>${bd?'<div class="more">查看名單 ›</div>':""}</button>
     <div class="stat"><div class="k">成交／轉介紹</div><div class="v num">${won}<small>位</small></div></div>`;
   const ac=$("#actCnt");ac.textContent=due;ac.classList.toggle("hot",over>0);
 }
@@ -337,12 +337,12 @@ document.addEventListener("click",e=>{
   const del=e.target.closest("[data-del-client]");
   if(del){const id=del.dataset.delClient,c=Ctx.my.get(id);showConfirm("刪除「"+(c&&c.name||"此客戶")+"」？","客戶資料與所有跟進紀錄都會刪除，無法復原。","確認刪除",async()=>{if(await removeClient(id))toast("已刪除")},true);return}
   const card=e.target.closest(".card[data-id], .alist button[data-id]");
-  if(card){openClient(card.dataset.id,"ins");return}
+  if(card){if(card.closest("#modalRoot"))$("#modalRoot").innerHTML="";openClient(card.dataset.id,"ins");return}
   const row=e.target.closest("tr[data-uid]");
   if(row&&!e.target.closest("button")){setMode("advisor",row.dataset.uid);return}
   const a=e.target.closest("[data-act]");if(!a)return;
   const act=a.dataset.act;
-  if(act==="new")openNew();else if(act==="import")openImport();else if(act==="demo")loadDemo();else if(act==="cleardemo")clearDemo();
+  if(act==="new")openNew();else if(act==="import")openImport();else if(act==="demo")loadDemo();else if(act==="cleardemo")clearDemo();else if(act==="bday")openBdayList();
   else if(act==="approve"||act==="enable")setStatus(a.dataset.uid,"active",act==="approve"?"已開通":"已恢復");
   else if(act==="reject"||act==="disable"){const u=userById(a.dataset.uid);showConfirm(act==="reject"?`拒絕「${userName(u)}」的申請？`:`停用「${userName(u)}」？`,act==="reject"?"對方將無法使用系統。之後仍可在「顯示已停用帳號」中恢復。":"停用後對方無法登入使用名單，但他建立的名單會保留，你仍可在後台檢視與匯出。","確認",()=>setStatus(a.dataset.uid,"disabled",act==="reject"?"已拒絕":"已停用"),true)}
   else if(act==="view")setMode("advisor",a.dataset.uid);
@@ -351,12 +351,20 @@ async function setStatus(id,st,msg){try{await backend.setStatus(id,st);toast(msg
 
 /* ---------- render: actions ---------- */
 function aItem(c,right){const g=gradeOf(c);return `<li><button type="button" data-id="${esc(keyOf(c))}"><span class="grade g" data-g="${g}">${g||"–"}</span><span class="an">${esc(c.name)}<small>${esc(metaLine(c))}</small></span><span class="ad">${right}</span></button></li>`}
+function bdayItems(){
+  const bd=items().map(c=>[c,daysToBirthday(c)]).filter(([c,d])=>d!=null&&d<=30).sort((a,b)=>a[1]-b[1]);
+  return bd.length?bd.map(([c,d])=>aItem(c,`<span class="due ${d<=3?"soon":""}">${d===0?"今天生日":d+" 天後・"+c.birthday.slice(5).replace("-","/")}</span>`)).join(""):`<li class="none">30 天內沒有壽星</li>`;
+}
+function openBdayList(){
+  $("#modalRoot").innerHTML=`<div class="modal" role="dialog" aria-modal="true"><div class="modal-box"><h3>30 天內壽星</h3><p>依生日先後排列，點名字可以打開客戶資料。</p><ul class="alist">${bdayItems()}</ul><div class="modal-actions"><button class="btn" type="button" id="mNo">關閉</button></div></div></div>`;
+  $("#mNo").onclick=()=>$("#modalRoot").innerHTML="";
+  $("#modalRoot .modal").onclick=e=>{if(e.target.classList.contains("modal"))$("#modalRoot").innerHTML=""};
+}
 function renderAct(){
   const all=items();
   const due=all.filter(c=>isActiveStage(c)&&c.nextDate&&dayDiff(c.nextDate)<=14).sort((a,b)=>a.nextDate<b.nextDate?-1:1);
   $("#actDue").innerHTML=due.length?due.map(c=>aItem(c,dueHtml(c))).join(""):`<li class="none">目前沒有待跟進的客戶</li>`;
-  const bd=all.map(c=>[c,daysToBirthday(c)]).filter(([c,d])=>d!=null&&d<=30).sort((a,b)=>a[1]-b[1]);
-  $("#actBday").innerHTML=bd.length?bd.map(([c,d])=>aItem(c,`<span class="due ${d<=3?"soon":""}">${d===0?"今天生日":d+" 天後・"+c.birthday.slice(5).replace("-","/")}</span>`)).join(""):`<li class="none">30 天內沒有壽星</li>`;
+  $("#actBday").innerHTML=bdayItems();
   const idle=all.filter(c=>["S","A"].includes(gradeOf(c))&&!c.nextDate&&isActiveStage(c)).sort((a,b)=>scoreOf(b).score-scoreOf(a).score);
   $("#actIdle").innerHTML=idle.length?idle.map(c=>aItem(c,`<span class="num">${scoreOf(c).score} 分</span>`)).join(""):`<li class="none">高分名單都已排程</li>`;
 }
