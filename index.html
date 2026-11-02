@@ -315,7 +315,16 @@ html,body{min-height:100%}
 .pend-list li{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line);flex-wrap:wrap}
 .pend-list .an{flex:1;min-width:160px;font-weight:500}
 .pend-list .an small{display:block;font-weight:400;color:var(--muted);font-size:12px}
-.pend-act{display:flex;gap:8px}
+.pend-act{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.mgr-pick{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted);white-space:nowrap}
+.mgr-pick .inp,.mgr-sel{width:auto;max-width:150px;padding:4px 8px;font-size:13px;height:auto}
+.org-panel{margin:16px 0}.org-panel h3{margin:0 0 2px}
+.org-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:10px 0}.org-legend span{display:inline-flex;align-items:center;gap:5px}.org-legend span::before{content:"";width:12px;height:12px;border-radius:3px;border:1px solid var(--line-2)}
+.org-legend .sel::before{background:var(--navy);border-color:var(--navy)}.org-legend .can::before{background:var(--ok-soft);border-color:var(--ok)}.org-legend .no::before{background:var(--surface-2)}
+.org-tree{overflow-x:auto}.org-tree ul{list-style:none;margin:0;padding:0}.org-tree li{margin:6px 0}.org-tree ul ul{margin-left:14px;padding-left:14px;border-left:1px solid var(--line-2)}
+.org-node{font:inherit;font-size:13.5px;display:inline-flex;gap:8px;align-items:baseline;padding:5px 11px;border-radius:7px;border:1px solid var(--line-2);background:var(--surface-2);color:var(--muted);cursor:pointer;white-space:nowrap}.org-node small{font-size:11px;opacity:.8}
+.org-node.can{background:var(--ok-soft);border-color:var(--ok);color:var(--ink,inherit)}.org-node.sel{background:var(--navy);border-color:var(--navy);color:#fff;font-weight:600}
+.org-note{font-size:13px;margin:10px 0 0;color:var(--muted)}
 .table-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
 table.team{width:100%;border-collapse:collapse;min-width:900px;font-size:13px}
 table.team th{font-weight:500;color:var(--muted);font-size:12px;text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--surface-2)}
@@ -433,20 +442,23 @@ table.team .muted{color:var(--muted)}
   <div id="teamView" hidden>
     <section class="summary" id="teamSummary" aria-label="團隊摘要"></section>
     <section class="pend-panel" id="pendPanel" hidden>
-      <h3>待開通申請</h3><p class="sub">確認是你的團隊成員後再開通。開通後對方即可建立自己的名單。</p>
+      <h3>待開通申請</h3><p class="sub">確認是你的團隊成員後，選好直屬主管再開通。開通後對方即可建立自己的名單，他的上線主管也看得到。</p>
       <ul class="pend-list" id="pendList"></ul>
     </section>
+    <section class="panel org-panel" id="orgPanel"><h3>組織圖</h3><p class="sub">點一個人，看他登入後看得到誰的名單。主管是唯讀，平行的主管互相看不到。</p>
+      <div class="org-legend"><span class="sel">選取的人</span><span class="can">看得到名單</span><span class="no">看不到</span></div>
+      <div class="org-tree" id="orgTree"></div><p class="org-note" id="orgNote"></p></section>
     <div class="team-h">
-      <div><h2>業務名單狀況</h2><p>點選任一位業務，以唯讀模式查看他的名單、經營建議與跟進紀錄。示範資料不列入統計。</p></div>
+      <div><h2>業務名單狀況</h2><p id="teamIntro"></p></div>
       <div class="team-tools">
         <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="teamQ" type="search" placeholder="搜尋業務" autocomplete="off"></label>
-        <label class="chk"><input type="checkbox" id="showDisabled">顯示已停用帳號</label>
+        <label class="chk" id="showDisabledWrap"><input type="checkbox" id="showDisabled">顯示已停用帳號</label>
         <button class="btn" type="button" id="btnTeamExport"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m0-12-4 4m4-4 4 4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>匯出全團隊 Excel</button>
       </div>
     </div>
     <div class="table-wrap">
       <table class="team">
-        <thead><tr><th>業務</th><th class="r">名單數</th><th>分級分佈</th><th class="r">逾期未聯絡</th><th class="r">7 天待跟進</th><th class="r">成交／轉介</th><th class="r">近 7 天跟進</th><th>最後更新</th><th></th></tr></thead>
+        <thead><tr><th>業務</th><th>直屬主管</th><th class="r">名單數</th><th>分級分佈</th><th class="r">逾期未聯絡</th><th class="r">7 天待跟進</th><th class="r">成交／轉介</th><th class="r">近 7 天跟進</th><th>最後更新</th><th></th></tr></thead>
         <tbody id="teamBody"></tbody>
       </table>
     </div>

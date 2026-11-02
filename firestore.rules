@@ -3,11 +3,13 @@ rules_version = '2';
 // 客戶經營名單｜Firestore 權限規則
 // ─────────────────────────────────────────────
 // admins/{uid}                 管理員名單（只能在 Firebase 主控台手動新增）
-// users/{uid}                  業務帳號資料（status: pending 待開通 / active 已開通 / disabled 已停用）
+// users/{uid}                  業務帳號資料（status: pending 待開通 / active 已開通 / disabled 已停用；
+//                              managerId 直屬主管、uplines 整條上線，只有管理員能改）
 // users/{uid}/clients/{cid}    該業務的客戶名單
 //
 // 原則：
-// 1. 業務只能讀寫「自己」的帳號資料與名單，看不到其他業務。
+// 1. 業務只能讀寫「自己」的帳號資料與名單，看不到平行或上線的業務。
+//    主管（uplines 內有他）可唯讀所有層級下線的帳號與名單，且雙方都必須是已開通。
 // 2. 新註冊的帳號一律是「待開通」，必須由管理員在後台開通後才能建立名單。
 // 3. 管理員可以讀取所有業務的帳號與名單，並可開通／停用帳號；但不能代替業務修改名單內容。
 // 4. 帳號被停用後，業務無法再讀寫名單，但名單仍保留給管理員檢視。
@@ -32,33 +34,45 @@ service cloud.firestore {
     function ownEmail() {
       return request.resource.data.email == request.auth.token.email;
     }
+    // 呼叫者是否為 uid 這位業務的上線主管（雙方都要已開通）
+    function isUplineOf(uid) {
+      return signedIn()
+        && isActive(request.auth.uid)
+        && get(/databases/$(database)/documents/users/$(uid)).data.status == 'active'
+        && request.auth.uid in get(/databases/$(database)/documents/users/$(uid)).data.uplines;
+    }
 
-    // 管理員名單：本人可確認自己是否為管理員；任何人都不能從網頁寫入
+    // 管理員名單：管理員可新增一般管理員、可移除一般管理員；擁有者（role: owner）不能從網頁移除或新增
     match /admins/{uid} {
-      allow read: if isSelf(uid);
-      allow write: if false;
+      allow read: if isSelf(uid) || isAdmin();
+      allow create: if isAdmin() && request.resource.data.role == 'admin';
+      allow delete: if isAdmin() && resource.data.role != 'owner';
+      allow update: if false;
     }
 
     // 業務帳號資料
     match /users/{uid} {
-      allow read: if isSelf(uid) || isAdmin();
+      // 主管用「uplines 包含我」查下線，這條必須直接比對 resource.data.uplines 才能通過查詢檢查
+      allow read: if isSelf(uid) || isAdmin()
+        || (signedIn() && isActive(request.auth.uid) && request.auth.uid in resource.data.uplines);
 
-      // 首次登入建立帳號：只能建立自己的，狀態必須是待開通
+      // 首次登入建立帳號：只能建立自己的，狀態必須是待開通，不能自己指定組織位置
       allow create: if isSelf(uid)
         && request.resource.data.status == 'pending'
+        && !request.resource.data.keys().hasAny(['managerId', 'uplines'])
         && ownEmail();
 
-      // 本人可更新姓名等資料，但不能改自己的開通狀態；管理員可更新任何人的狀態
+      // 本人可更新姓名等資料，但不能改自己的開通狀態與組織位置；管理員可更新任何人的狀態與直屬主管
       allow update: if isAdmin()
         || (isSelf(uid)
-            && request.resource.data.status == resource.data.status
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'managerId', 'uplines'])
             && ownEmail());
 
       allow delete: if isAdmin();
 
-      // 客戶名單：本人且已開通才能讀寫；管理員唯讀
+      // 客戶名單：本人且已開通才能讀寫；管理員與上線主管唯讀
       match /clients/{cid} {
-        allow read: if isAdmin() || (isSelf(uid) && isActive(uid));
+        allow read: if isAdmin() || (isSelf(uid) && isActive(uid)) || isUplineOf(uid);
         allow create, update: if isSelf(uid) && isActive(uid)
           && request.resource.data.ownerUid == uid
           && request.resource.data.name is string
