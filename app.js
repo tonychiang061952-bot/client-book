@@ -7,17 +7,17 @@ const SOURCES=[["A","親戚"],["B","朋友"],["C","鄉親"],["D","同好"],["E",
 const SRC=Object.fromEntries(SOURCES);
 const SCORE={
   income:{label:"每月收入",opts:["2萬以下","2–4萬","4–7萬","7–10萬","10萬以上"],pts:[0,5,10,15,20]},
-  age:{label:"年齡",opts:["25歲以下","26–35歲","36–45歲","46歲以上"],pts:[15,20,20,25]},
+  age:{label:"年齡",opts:["25歲以下","26–35歲","36–45歲","46歲以上"],pts:[10,15,15,20]},
   marital:{label:"婚姻",opts:["單身","交往中","已婚無子女","已婚有子女"],pts:[5,5,10,10]},
   property:{label:"房產",opts:["無房產","2年內購入","持有2–5年","持有5–10年","持有10年以上"],marks:["不加","＋","＋","＋","＋"]},
   contact:{label:"一年內聯絡（交情）",opts:["2次以下・不熟","3–7次・普通","7–11次・好朋友","12次以上・麻吉"],pts:[0,5,10,15]},
-  approach:{label:"接近難易度",opts:["幾乎不可能","有點難","容易","非常容易"],pts:[0,5,10,15]}
+  approach:{label:"接近難易度",opts:["幾乎不可能","有點難","容易","非常容易"],pts:[0,10,15,20]}
 };
 const SCORE_KEYS=["income","age","marital","contact","approach"]; // 房產不計分，有房產時分級加「+」
 const MAX_SCORE=100;
 const ATT_PTS={"排斥保險":-15,"中立觀望":5,"認同規劃":15,"已有信任顧問":5}; // 「已有信任顧問」已從選項移除，舊資料先算中立
 const ATT_LABEL="對保險的態度";
-const MID_PTS={income:10,age:20,marital:5,attitude:5}; // 不清楚時先算普通；交情、接近沒有預設值
+const MID_PTS={income:10,age:15,marital:5,attitude:5}; // 不清楚時先算普通；交情、接近沒有預設值
 const SCORE_N=SCORE_KEYS.length+1;
 const STAGES=[
   {k:"lead",t:"名單",c:"var(--muted)",b:"var(--surface-2)"},
