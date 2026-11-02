@@ -84,7 +84,7 @@ function scoreOf(c){
   const ready=isNum(c.contact)&&isNum(c.approach);
   return {score:ready?s:0,filled,ready,final:ready&&filled===SCORE_N};
 }
-function gradeOf(c){const {score,ready}=scoreOf(c);if(!ready)return "";return score>=90?"S":score>=70?"A":score>=55?"B":"C"}
+function gradeOf(c){const {score,ready}=scoreOf(c);if(!ready)return "";return score>=85?"S":score>=70?"A":score>=55?"B":"C"}
 const isTemp=c=>{const r=scoreOf(c);return r.ready&&!r.final};
 function scoreNote(c){const {ready,final,filled}=scoreOf(c);return ready&&!final?`暫定 ${filled}/${SCORE_N}`:final?`/ ${MAX_SCORE}`:`${filled}/${SCORE_N}`}
 const hasProperty=c=>isNum(c.property)&&c.property>=1;
