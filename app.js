@@ -6,15 +6,19 @@ import { TEAM } from "./config.js";
 const SOURCES=[["A","親戚"],["B","朋友"],["C","鄉親"],["D","同好"],["E","消費"],["F","社團"],["G","同事"],["H","同學"],["I","老師"],["J","轉介"],["K","網路客"],["L","陌生開發"]];
 const SRC=Object.fromEntries(SOURCES);
 const SCORE={
-  income:{label:"每月收入",opts:["2萬以下","2–4萬","4–7萬","7–10萬","10萬以上"],pts:[0,10,15,20,25]},
-  age:{label:"年齡",opts:["25歲以下","26–35歲","36–45歲","46歲以上"],pts:[5,10,10,5]},
-  marital:{label:"婚姻",opts:["單身","交往中","已婚無子女","已婚有子女"],pts:[5,10,10,15]},
-  property:{label:"房產",opts:["無房產","2年內購入","持有2–5年","持有5–10年","持有10年以上"],pts:[0,5,10,15,20]},
-  contact:{label:"一年內聯絡（交情）",opts:["2次以下・不熟","3–7次・普通","7–11次・好朋友","12次以上・麻吉"],pts:[5,10,15,20]},
+  income:{label:"每月收入",opts:["2萬以下","2–4萬","4–7萬","7–10萬","10萬以上"],pts:[0,5,10,15,20]},
+  age:{label:"年齡",opts:["25歲以下","26–35歲","36–45歲","46歲以上"],pts:[15,20,20,25]},
+  marital:{label:"婚姻",opts:["單身","交往中","已婚無子女","已婚有子女"],pts:[5,5,10,10]},
+  property:{label:"房產",opts:["無房產","2年內購入","持有2–5年","持有5–10年","持有10年以上"],marks:["不加","＋","＋","＋","＋"]},
+  contact:{label:"一年內聯絡（交情）",opts:["2次以下・不熟","3–7次・普通","7–11次・好朋友","12次以上・麻吉"],pts:[0,5,10,15]},
   approach:{label:"接近難易度",opts:["幾乎不可能","有點難","容易","非常容易"],pts:[0,5,10,15]}
 };
-const SCORE_KEYS=["income","age","marital","property","contact","approach"];
-const MAX_SCORE=105;
+const SCORE_KEYS=["income","age","marital","contact","approach"]; // 房產不計分，有房產時分級加「+」
+const MAX_SCORE=100;
+const ATT_PTS={"排斥保險":-15,"中立觀望":5,"認同規劃":15,"已有信任顧問":5}; // 「已有信任顧問」已從選項移除，舊資料先算中立
+const ATT_LABEL="對保險的態度";
+const MID_PTS={income:10,age:20,marital:5,attitude:5}; // 不清楚時先算普通；交情、接近沒有預設值
+const SCORE_N=SCORE_KEYS.length+1;
 const STAGES=[
   {k:"lead",t:"名單",c:"var(--muted)",b:"var(--surface-2)"},
   {k:"touched",t:"已聯繫",c:"var(--gB)",b:"var(--surface-2)"},
@@ -40,7 +44,7 @@ const P={
   disc:["D 主導型","I 社交型","S 穩健型","C 分析型"],
   decision:["自己決定","與配偶討論","需家人同意","依賴專業建議"],
   focus:["價格","保障完整","服務與信任","資產成長"],
-  attitude:["排斥保險","中立觀望","認同規劃","已有信任顧問"],
+  attitude:["排斥保險","中立觀望","認同規劃"],
   channel:["LINE","電話","面談","簡訊"],
   timeslot:["平日白天","平日晚上","假日"],
   hobbies:["運動健身","旅遊","美食","親子","投資理財","宗教","寵物","藝文","汽車","3C 科技","登山露營","公益"],
@@ -73,8 +77,18 @@ const ICON={
 
 function ageOf(c){const d=parseD(c.birthday);if(!d)return null;const t=new Date();let a=t.getFullYear()-d.getFullYear();if(t.getMonth()<d.getMonth()||(t.getMonth()===d.getMonth()&&t.getDate()<d.getDate()))a--;return a>=0&&a<120?a:null}
 function ageBand(c){const a=ageOf(c);if(a!=null)return a<=25?0:a<=35?1:a<=45?2:3;return isNum(c.age)?c.age:null}
-function scoreOf(c){let s=0,filled=0;for(const k of SCORE_KEYS){const i=k==="age"?ageBand(c):c[k];if(isNum(i)&&SCORE[k].pts[i]!=null){s+=SCORE[k].pts[i];filled++}}return {score:s,filled}}
-function gradeOf(c){const {score,filled}=scoreOf(c);if(filled===0||score===0)return "";return score>94?"S":score>=75?"A":score>=60?"B":"C"}
+function scoreOf(c){
+  let s=0,filled=0;
+  for(const k of SCORE_KEYS){const i=k==="age"?ageBand(c):c[k];if(isNum(i)&&SCORE[k].pts[i]!=null){s+=SCORE[k].pts[i];filled++}else if(MID_PTS[k]!=null)s+=MID_PTS[k]}
+  if(ATT_PTS[c.attitude]!=null){s+=ATT_PTS[c.attitude];filled++}else s+=MID_PTS.attitude;
+  const ready=isNum(c.contact)&&isNum(c.approach);
+  return {score:ready?s:0,filled,ready,final:ready&&filled===SCORE_N};
+}
+function gradeOf(c){const {score,ready}=scoreOf(c);if(!ready)return "";return score>=85?"S":score>=75?"A":score>=60?"B":"C"}
+const isTemp=c=>{const r=scoreOf(c);return r.ready&&!r.final};
+function scoreNote(c){const {ready,final,filled}=scoreOf(c);return ready&&!final?`暫定 ${filled}/${SCORE_N}`:final?`/ ${MAX_SCORE}`:`${filled}/${SCORE_N}`}
+const hasProperty=c=>isNum(c.property)&&c.property>=1;
+function gradeLabel(c){const g=gradeOf(c);return g&&hasProperty(c)?g+"+":g}
 function daysToBirthday(c){const d=parseD(c.birthday);if(!d)return null;const t=parseD(today());let n=new Date(t.getFullYear(),d.getMonth(),d.getDate());if(n<t)n=new Date(t.getFullYear()+1,d.getMonth(),d.getDate());return Math.round((n-t)/864e5)}
 const isActiveStage=c=>!["won","hold"].includes(c.stage);
 
@@ -218,7 +232,7 @@ fillSelect($("#fSource"),"全部來源",SOURCES.map(([k,t])=>[k,k+" "+t]));
 fillSelect($("#fNeed"),"全部需求",P.needs.map(n=>[n,n]));
 fillSelect($("#fDisc"),"全部個性",P.disc.map(n=>[n,n]));
 $("#fSort").value=S.sort;
-$("#gradeSeg").innerHTML=[["all","全部"],["S","S"],["A","A"],["B","B"],["C","C"],["none","未評"]].map(([v,t])=>`<button type="button" data-g="${v}" aria-pressed="${v===S.grade}">${t}</button>`).join("");
+$("#gradeSeg").innerHTML=[["all","全部"],["S","S"],["A","A"],["B","B"],["C","C"],["none","待評"]].map(([v,t])=>`<button type="button" data-g="${v}" aria-pressed="${v===S.grade}">${t}</button>`).join("");
 $("#gradeSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;S.grade=b.dataset.g;[...$("#gradeSeg").children].forEach(x=>x.setAttribute("aria-pressed",x===b));renderList()});
 $("#q").addEventListener("input",e=>{S.q=e.target.value.trim().toLowerCase();renderList()});
 [["#fStage","stage"],["#fSource","source"],["#fNeed","need"],["#fDisc","disc"],["#fSort","sort"]].forEach(([s,k])=>$(s).addEventListener("change",e=>{S[k]=e.target.value;if(k==="sort")rememberUI();renderList()}));
@@ -267,7 +281,7 @@ function renderSummary(){
   $("#summary").innerHTML=`
     <div class="stat"><div class="k">名單總數 ・ 分級分佈</div><div class="v num">${n}<small>位</small></div>
       <div class="dist">${seg("S")}${seg("A")}${seg("B")}${seg("C")}</div>
-      <div class="dist-legend"><span><b style="color:var(--gS)">${g.S}</b>S</span><span><b style="color:var(--gA)">${g.A}</b>A</span><span><b style="color:var(--gB)">${g.B}</b>B</span><span><b style="color:var(--gC)">${g.C}</b>C</span>${g[""]?`<span><b>${g[""]}</b>未評</span>`:""}</div></div>
+      <div class="dist-legend"><span><b style="color:var(--gS)">${g.S}</b>S</span><span><b style="color:var(--gA)">${g.A}</b>A</span><span><b style="color:var(--gB)">${g.B}</b>B</span><span><b style="color:var(--gC)">${g.C}</b>C</span>${g[""]?`<span><b>${g[""]}</b>待評</span>`:""}</div></div>
     <div class="stat"><div class="k">7 天內待跟進</div><div class="v num">${due}<small>位</small></div></div>
     <div class="stat"><div class="k">已逾期未聯絡</div><div class="v num ${over?"alert":""}">${over}<small>位</small></div></div>
     <button type="button" class="stat stat-btn" data-act="bday"><div class="k">30 天內壽星</div><div class="v num">${bd}<small>位</small></div>${bd?'<div class="more">查看名單 ›</div>':""}</button>
@@ -285,7 +299,7 @@ function filtered(){
   if(S.disc)list=list.filter(c=>c.disc===S.disc);
   if(S.q){list=list.filter(c=>[c.name,c.job,c.jobCat,c.jobOther,c.area,c.note,c.referrer,arr(c.tags).join(" "),arr(c.needs).join(" "),arr(c.hobbies).join(" ")].join(" ").toLowerCase().includes(S.q))}
   const by={
-    score:(a,b)=>scoreOf(b).score-scoreOf(a).score||(a.no||0)-(b.no||0),
+    score:(a,b)=>scoreOf(b).score-scoreOf(a).score||hasProperty(b)-hasProperty(a)||(a.no||0)-(b.no||0),
     next:(a,b)=>(a.nextDate||"9999")<(b.nextDate||"9999")?-1:(a.nextDate||"9999")>(b.nextDate||"9999")?1:0,
     updated:(a,b)=>(b.updatedAt||"")<(a.updatedAt||"")?-1:1,
     no:(a,b)=>(a.no||0)-(b.no||0)
@@ -302,18 +316,18 @@ function stageHtml(k){const s=STG[k||"lead"]||STG.lead;return `<span class="stag
 function metaLine(c){const a=ageOf(c);return [c.source?`${c.source} ${SRC[c.source]||""}`:"",a!=null?a+"歲":(isNum(c.age)?SCORE.age.opts[c.age]:""),c.job||jobCatLabel(c),c.area||""].filter(Boolean).join(" ・ ")}
 function keyOf(c){return Ctx.mode==="advisor"?c.id+"@"+c._owner:c.id}
 function cardHtml(c){
-  const g=gradeOf(c);const {score}=scoreOf(c);
+  const g=gradeOf(c);const {score,ready}=scoreOf(c);
   const needs=arr(c.needs).slice(0,3).map(n=>`<span class="pill need">${esc(n)}</span>`).join("");
   const disc=c.disc?`<span class="pill disc">${esc(c.disc)}</span>`:"";
   const tags=arr(c.tags).slice(0,3).map(t=>`<span class="pill tag">${esc(t)}</span>`).join("");
   return `<button type="button" class="card" data-id="${esc(keyOf(c))}">
     ${readOnly()?"":`<span class="card-del" data-del-client="${esc(c.id)}" role="button" aria-label="刪除 ${esc(c.name||"此客戶")}" title="刪除">×</span>`}
     <div class="card-head">
-      <div class="grade" data-g="${g}">${g||"未評"}</div>
+      <div class="grade" data-g="${g}" data-temp="${isTemp(c)?1:0}">${gradeLabel(c)||"待評"}</div>
       <div class="who"><div class="name">${esc(c.name||"（未命名）")}<span class="no">No.${esc(c.no||"-")}</span>${c.demo?'<span class="demo-flag">示範</span>':""}</div><div class="meta">${esc(metaLine(c))||"&nbsp;"}</div></div>
-      <div class="score"><b class="num">${score}</b><span>/ ${MAX_SCORE}</span></div>
+      <div class="score"><b class="num">${ready?score:"–"}</b><span>${scoreNote(c)}</span></div>
     </div>
-    <div class="bar"><i style="width:${Math.min(100,score/MAX_SCORE*100)}%"></i></div>
+    <div class="bar"><i style="width:${Math.max(0,Math.min(100,score/MAX_SCORE*100))}%"></i></div>
     ${(needs||disc||tags)?`<div class="chips">${disc}${needs}${tags}</div>`:""}
     <div class="card-foot">${stageHtml(c.stage)}${dueHtml(c)}</div>
   </button>`;
@@ -350,7 +364,7 @@ document.addEventListener("click",e=>{
 async function setStatus(id,st,msg){try{await backend.setStatus(id,st);toast(msg)}catch(e){toast(errMsg(e,"更新失敗"))}}
 
 /* ---------- render: actions ---------- */
-function aItem(c,right){const g=gradeOf(c);return `<li><button type="button" data-id="${esc(keyOf(c))}"><span class="grade g" data-g="${g}">${g||"–"}</span><span class="an">${esc(c.name)}<small>${esc(metaLine(c))}</small></span><span class="ad">${right}</span></button></li>`}
+function aItem(c,right){const g=gradeOf(c);return `<li><button type="button" data-id="${esc(keyOf(c))}"><span class="grade g" data-g="${g}" data-temp="${isTemp(c)?1:0}">${gradeLabel(c)||"–"}</span><span class="an">${esc(c.name)}<small>${esc(metaLine(c))}</small></span><span class="ad">${right}</span></button></li>`}
 function bdayItems(){
   const bd=items().map(c=>[c,daysToBirthday(c)]).filter(([c,d])=>d!=null&&d<=30).sort((a,b)=>a[1]-b[1]);
   return bd.length?bd.map(([c,d])=>aItem(c,`<span class="due ${d<=3?"soon":""}">${d===0?"今天生日":d+" 天後・"+c.birthday.slice(5).replace("-","/")}</span>`)).join(""):`<li class="none">30 天內沒有壽星</li>`;
@@ -502,11 +516,11 @@ $("#scrim").addEventListener("click",()=>closeDrawer());
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){if($("#modalRoot").firstChild){$("#modalRoot").innerHTML="";return}if($("#drawer").classList.contains("on"))closeDrawer()}});
 
 function renderHead(){
-  const c=S.draft;const g=gradeOf(c);const {score,filled}=scoreOf(c);const ro=readOnly();
+  const c=S.draft;const g=gradeOf(c);const {score,filled,ready}=scoreOf(c);const ro=readOnly();
   const tabs=[!S.isNew&&["ins","經營建議"],!ro&&["edit","客戶資料"],!S.isNew&&["log",`跟進紀錄<span class="cnt">${arr(c.logs).length}</span>`]].filter(Boolean);
-  $("#dHead").innerHTML=`<div class="d-top"><div class="grade" data-g="${g}" id="dGrade">${g||"未評"}</div>
+  $("#dHead").innerHTML=`<div class="d-top"><div class="grade" data-g="${g}" data-temp="${isTemp(c)?1:0}" id="dGrade">${gradeLabel(c)||"待評"}</div>
     <div style="min-width:0;flex:1"><h2>${esc(c.name||(S.isNew?"新增客戶":"（未命名）"))}</h2><div class="meta">${esc(metaLine(c))||"No."+c.no}</div></div>
-    <div class="score"><b class="num" id="dScore">${score}</b><span id="dFilled">${filled}/6 項已評</span></div>
+    <div class="score"><b class="num" id="dScore">${ready?score:"–"}</b><span id="dFilled">${isTemp(c)?scoreNote(c):filled+"/"+SCORE_N+" 項已評"}</span></div>
     <button class="btn ghost d-close" type="button" id="dClose" aria-label="關閉">${ICON.close}</button></div>
     <div class="d-tabs tabs">${tabs.map(([k,t])=>`<button class="tab" type="button" data-dt="${k}" aria-selected="${S.dTab===k}">${t}</button>`).join("")}</div>`;
   $("#dClose").onclick=()=>closeDrawer();
@@ -514,7 +528,7 @@ function renderHead(){
     if(S.dirty&&b.dataset.dt!=="edit"){showConfirm("尚未儲存的修改","切換分頁前要先儲存嗎？","儲存並切換",async()=>{if(await saveDraft())openClient(S.openId,b.dataset.dt)});return}
     S.dTab=b.dataset.dt;renderDrawer()});
 }
-function liveHead(){const c=S.draft;const g=gradeOf(c);const {score,filled}=scoreOf(c);const ge=$("#dGrade");ge.dataset.g=g;ge.textContent=g||"未評";$("#dScore").textContent=score;$("#dFilled").textContent=filled+"/6 項已評"}
+function liveHead(){const c=S.draft;const g=gradeOf(c);const {score,filled,ready}=scoreOf(c);const ge=$("#dGrade");ge.dataset.g=g;ge.dataset.temp=isTemp(c)?1:0;ge.textContent=gradeLabel(c)||"待評";$("#dScore").textContent=ready?score:"–";$("#dFilled").textContent=isTemp(c)?scoreNote(c):filled+"/"+SCORE_N+" 項已評"}
 function renderDrawer(){
   if(!S.draft)return;
   if(!S.isNew&&S.openId&&!S.dirty){const fresh=itemsMap().get(S.openId);if(fresh)S.draft=JSON.parse(JSON.stringify(fresh))}
@@ -532,7 +546,10 @@ function renderDrawer(){
 }
 function insHtml(c){
   const I=insights(c);
-  const bd=SCORE_KEYS.map(k=>{const i=k==="age"?ageBand(c):c[k];const ok=isNum(i);return `<div class="bd ${ok?"":"miss"}"><span class="p">${ok?SCORE[k].pts[i]:"–"}</span><div class="k">${SCORE[k].label.replace("（交情）","")}</div><div class="v">${ok?SCORE[k].opts[i]:"未填"}</div></div>`}).join("");
+  const bdItem=(pt,k,v,miss)=>`<div class="bd ${miss?"miss":""}"><span class="p">${pt}</span><div class="k">${k}</div><div class="v">${v}</div></div>`;
+  const bd=SCORE_KEYS.map(k=>{const i=k==="age"?ageBand(c):c[k];const ok=isNum(i);const label=SCORE[k].label.replace("（交情）","");if(ok)return bdItem(SCORE[k].pts[i],label,SCORE[k].opts[i],false);return MID_PTS[k]!=null?bdItem(MID_PTS[k],label,"不清楚，先算普通",true):bdItem("–",label,"未填",true)}).join("")
+    +(ATT_PTS[c.attitude]!=null?bdItem(ATT_PTS[c.attitude],ATT_LABEL,esc(c.attitude),false):bdItem(MID_PTS.attitude,ATT_LABEL,"不清楚，先算普通",true))
+    +(()=>{const i=c.property;const ok=isNum(i);return bdItem(ok?(i>=1?"＋":"0"):"–","房產加分",ok?SCORE.property.opts[i]:"未填",!ok)})();
   const tips=I.tips.length?I.tips.map(([l,cls,h,p])=>`<div class="tip ${cls}"><span class="lbl">${esc(l)}</span><h5>${esc(h)}</h5><p>${esc(p)}</p></div>`).join(""):`<div class="tip"><span class="lbl">提示</span><h5>補上客戶習性</h5><p>在「客戶資料」填入個性類型、決策方式與需求，這裡會產生具體的接觸建議。</p></div>`;
   const row=(k,v)=>v&&(Array.isArray(v)?v.length:true)?`<dt>${k}</dt><dd>${esc(Array.isArray(v)?v.join("、"):v)}</dd>`:"";
   const prof=[row("經營階段",(STG[c.stage||"lead"]||{}).t),row("名單來源",c.source?c.source+" "+SRC[c.source]+(c.referrer?`（${c.referrer} 介紹）`:""):""),row("生日",c.birthday),row("職業",[jobCatLabel(c),c.job].filter(Boolean).join("・")),row("居住區域",c.area),row("電話",c.phone),row("LINE",c.line),row("子女",c.kids),row("扶養父母",c.parents),row("收入型態",c.incomeType),row("房貸狀態",c.loan),row("既有保單",c.policies),row("理財經驗",c.invest),row("風險屬性",c.risk),row("最在意",c.focus),row("對保險態度",c.attitude),row("增員潛力",c.recruit),row("Hashtag",c.tags),row("備註",c.note)].join("");
@@ -542,16 +559,19 @@ function insHtml(c){
 }
 
 /* form */
-function optGroup(key,list,{multi=false,scored=null}={}){
+function optGroup(key,list,{multi=false,scored=null,notes=null}={}){
   const v=S.draft[key];
   return `<div class="opts" data-key="${key}" data-multi="${multi?1:0}">${list.map((o,i)=>{
     const val=scored?i:o;const on=multi?arr(v).includes(val):v===val;
-    return `<button type="button" class="opt ${scored?"scored":""}" data-v="${esc(String(val))}" aria-pressed="${on}">${esc(o)}${scored?`<small>${scored[i]}分</small>`:""}</button>`}).join("")}</div>`;
+    return `<button type="button" class="opt ${scored?"scored":""}" data-v="${esc(String(val))}" aria-pressed="${on}">${esc(o)}${scored?`<small>${typeof scored[i]==="number"?scored[i]+"分":scored[i]}</small>`:notes?`<small>${notes[i]}</small>`:""}</button>`}).join("")}</div>`;
 }
 function scoreField(k){
+  if(k==="attitude"){const old=S.draft.attitude==="已有信任顧問";return `<div class="field"><div class="lab">${ATT_LABEL}<em>${old?"舊資料：已有信任顧問，先算中立":"不清楚可先不選，算 5 分"}</em></div>${optGroup("attitude",P.attitude,{notes:P.attitude.map(a=>ATT_PTS[a]+"分")})}</div>`}
   const s=SCORE[k];
   if(k==="age"){const a=ageOf(S.draft);return `<div class="field" id="ageField"><div class="lab">${s.label}<em>${a!=null?`依生日自動計算：${a} 歲`:"或填生日自動計算"}</em></div>${a!=null?`<div class="opts">${s.opts.map((o,i)=>`<span class="opt scored" aria-pressed="${ageBand(S.draft)===i}" style="cursor:default">${o}<small>${s.pts[i]}分</small></span>`).join("")}</div>`:optGroup("age",s.opts,{scored:s.pts})}</div>`}
-  return `<div class="field"><div class="lab">${s.label}</div>${optGroup(k,s.opts,{scored:s.pts})}</div>`;
+  if(k==="property")return `<div class="field"><div class="lab">${s.label}<em>不計分，有房產者分級加「+」</em></div>${optGroup(k,s.opts,{scored:s.marks})}</div>`;
+  const must=(k==="contact"||k==="approach")&&S.isNew;
+  return `<div class="field"><div class="lab">${s.label}${must?"<em>必填</em>":""}</div>${optGroup(k,s.opts,{scored:s.pts})}</div>`;
 }
 function renderForm(){
   const c=S.draft;
@@ -568,8 +588,8 @@ function renderForm(){
     ${f("名單來源",`<div class="opts" data-key="source" data-multi="0">${SOURCES.map(([k,t])=>`<button type="button" class="opt" data-v="${k}" aria-pressed="${c.source===k}">${k} ${t}</button>`).join("")}</div>`)}
     <div class="f2">${f("介紹人",inp("referrer","text","轉介紹來源（選填）"))}${f("增員潛力",optGroup("recruit",P.recruit))}</div>
   </div>
-  <div class="sec"><div class="sec-h"><h4>名單評分</h4><span>沿用原 Excel 六大指標・滿分 105</span></div>
-    ${SCORE_KEYS.map(scoreField).join("")}
+  <div class="sec"><div class="sec-h"><h4>名單評分</h4><span>六項計分・滿分 100・房產為加分項</span></div>
+    ${[...SCORE_KEYS,"attitude","property"].map(scoreField).join("")}
   </div>
   <div class="sec"><div class="sec-h"><h4>家庭與財務</h4><span>不計分・用於需求分析</span></div>
     ${f("子女階段（可複選）",optGroup("kids",P.kids,{multi:true}))}
@@ -587,7 +607,6 @@ function renderForm(){
     ${f("個性類型（DISC）",optGroup("disc",P.disc)+`<div class="hint">D 果斷重效率 ・ I 熱情愛交流 ・ S 溫和重安全感 ・ C 謹慎重細節</div>`)}
     ${f("決策方式",optGroup("decision",P.decision))}
     ${f("最在意",optGroup("focus",P.focus))}
-    ${f("對保險態度",optGroup("attitude",P.attitude))}
     ${f("偏好聯絡管道（可複選）",optGroup("channel",P.channel,{multi:true}))}
     ${f("方便聯絡時段（可複選）",optGroup("timeslot",P.timeslot,{multi:true}))}
     ${f("興趣嗜好（可複選）",optGroup("hobbies",P.hobbies,{multi:true}))}
@@ -630,6 +649,7 @@ $("#dBody").addEventListener("change",e=>{const el=e.target.closest("[data-in]")
 async function saveDraft(){
   const c=S.draft;c.name=(c.name||"").trim();
   if(!c.name){toast("請先填寫客戶姓名");const n=$("#f-name");if(n)n.focus();return false}
+  if(S.isNew&&(!isNum(c.contact)||!isNum(c.approach))){toast("請選擇交情和接近難易度");const o=document.querySelector(`.opts[data-key="${isNum(c.contact)?"approach":"contact"}"]`);if(o)o.scrollIntoView({block:"center"});return false}
   if(ageOf(c)!=null)c.age=ageBand(c);
   if(c.jobCat!=="其他")delete c.jobOther;else c.jobOther=(c.jobOther||"").trim();
   const btn=$("#btnSave");if(btn){btn.disabled=true;btn.textContent="儲存中…"}
@@ -766,7 +786,7 @@ function exportClients(list,label,withOwner){
   list=list.slice().sort((a,b)=>withOwner?(userName(userById(a._owner)).localeCompare(userName(userById(b._owner)),"zh-Hant")||(a.no||0)-(b.no||0)):(a.no||0)-(b.no||0));
   const rows=list.map(c=>{const o={};if(withOwner){const u=userById(c._owner);o["負責業務"]=userName(u);o["業務 Email"]=u&&u.email||""}
     const sc=scoreOf(c);FLAT.forEach(([h,k])=>{let v=c[k];
-    if(k==="_score")v=sc.score;else if(k==="_grade")v=gradeOf(c);
+    if(k==="_score")v=sc.ready?sc.score:"";else if(k==="_grade")v=sc.ready?gradeLabel(c)+(sc.final?"":"（暫定）"):"待評";
     else if(k==="_logs")v=arr(c.logs).slice().sort((a,b)=>a.d<b.d?-1:1).map(l=>`${l.d} ${l.t}：${l.x}`).join("\n");
     else if(k==="age"){const i=ageBand(c);v=isNum(i)?SCORE.age.opts[i]:""}
     else if(SCORE[k])v=isNum(v)?SCORE[k].opts[v]:"";
