@@ -115,7 +115,8 @@ select.sel{padding:8px 30px 8px 10px;border:1px solid var(--line-2);border-radiu
 .card-del+.card-head .score{padding-top:10px}
 .card-head{display:flex;gap:12px;align-items:flex-start}
 .grade{flex:none;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-num);font-weight:700;font-size:22px;border:1.5px solid currentColor;line-height:1}
-.grade[data-g="A"]{color:var(--gS);background:var(--gold-soft)}
+.grade[data-g="S"]{color:var(--gS);background:var(--gold-soft)}
+.grade[data-g="A"]{color:var(--gA);background:var(--navy-soft)}
 .grade[data-g="B"]{color:var(--gB)}
 .grade[data-g="C"]{color:var(--gC)}
 .grade[data-temp="1"]{border-style:dashed}
@@ -489,20 +490,20 @@ table.team .muted{color:var(--muted)}
       <div class="cols" style="margin-top:18px">
         <div class="panel"><h3>待跟進</h3><p class="sub">已逾期與未來 14 天內的預定聯絡</p><ul class="alist" id="actDue"></ul></div>
         <div class="panel"><h3>近期壽星</h3><p class="sub">未來 30 天生日，適合關懷問候</p><ul class="alist" id="actBday"></ul></div>
-        <div class="panel"><h3>高分未排程</h3><p class="sub">A 級但尚未設定下次聯絡日</p><ul class="alist" id="actIdle"></ul></div>
+        <div class="panel"><h3>高分未排程</h3><p class="sub">S／A 級但尚未設定下次聯絡日</p><ul class="alist" id="actIdle"></ul></div>
       </div>
     </section>
 
     <section id="view-ana" hidden>
       <div class="cols" style="margin-top:18px">
-        <div class="panel"><h3>來源 × 分級</h3><p class="sub">哪一種人脈產出高品質名單</p><div class="legend"><span style="--c:var(--gA)">A</span><span style="--c:var(--gB)">B</span><span style="--c:var(--gC)">C</span></div><div id="anaSource"></div></div>
+        <div class="panel"><h3>來源 × 分級</h3><p class="sub">哪一種人脈產出高品質名單</p><div class="legend"><span style="--c:var(--gS)">S</span><span style="--c:var(--gA)">A</span><span style="--c:var(--gB)">B</span><span style="--c:var(--gC)">C</span></div><div id="anaSource"></div></div>
         <div class="panel funnel"><h3>經營漏斗</h3><p class="sub">各階段人數</p><div id="anaStage"></div></div>
         <div class="panel"><h3>需求熱度 × 個性分佈</h3><p class="sub">決定下一場說明會與話術主題</p><div id="anaNeed"></div><div style="height:12px"></div><div id="anaDisc"></div></div>
       </div>
     </section>
   </div>
 
-  <p class="foot-note">評分看六項指標（年齡、收入、交情、接近難易度、對保險的態度、婚姻），滿分 100：60 分以上為 A、45–59 為 B、未滿 45 為 C。房產不計分，有房產者分級加「+」（如 A+、B+）。有不清楚的項目時先以普通計分，顯示為暫定；交情或接近難易度未填則為待評。其他客戶習性欄位不計分，用於擬定接觸策略。經營建議為內部參考，對客戶說明時仍須依公司規範以情境試算呈現，不得保證收益。名單內容屬客戶個人資料，僅限內部經營使用。</p>
+  <p class="foot-note">評分看六項指標（年齡、收入、交情、接近難易度、對保險的態度、婚姻），滿分 100：90 分以上為 S、70–89 為 A、55–69 為 B、未滿 55 為 C。房產不計分，有房產者分級加「+」（如 S+、A+）。有不清楚的項目時先以普通計分，顯示為暫定；交情或接近難易度未填則為待評。其他客戶習性欄位不計分，用於擬定接觸策略。經營建議為內部參考，對客戶說明時仍須依公司規範以情境試算呈現，不得保證收益。名單內容屬客戶個人資料，僅限內部經營使用。</p>
 </main>
 
 <div class="scrim" id="scrim"></div>

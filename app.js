@@ -84,7 +84,7 @@ function scoreOf(c){
   const ready=isNum(c.contact)&&isNum(c.approach);
   return {score:ready?s:0,filled,ready,final:ready&&filled===SCORE_N};
 }
-function gradeOf(c){const {score,ready}=scoreOf(c);if(!ready)return "";return score>=60?"A":score>=45?"B":"C"}
+function gradeOf(c){const {score,ready}=scoreOf(c);if(!ready)return "";return score>=90?"S":score>=70?"A":score>=55?"B":"C"}
 const isTemp=c=>{const r=scoreOf(c);return r.ready&&!r.final};
 function scoreNote(c){const {ready,final,filled}=scoreOf(c);return ready&&!final?`暫定 ${filled}/${SCORE_N}`:final?`/ ${MAX_SCORE}`:`${filled}/${SCORE_N}`}
 const hasProperty=c=>isNum(c.property)&&c.property>=1;
@@ -232,7 +232,7 @@ fillSelect($("#fSource"),"全部來源",SOURCES.map(([k,t])=>[k,k+" "+t]));
 fillSelect($("#fNeed"),"全部需求",P.needs.map(n=>[n,n]));
 fillSelect($("#fDisc"),"全部個性",P.disc.map(n=>[n,n]));
 $("#fSort").value=S.sort;
-$("#gradeSeg").innerHTML=[["all","全部"],["A","A"],["B","B"],["C","C"],["none","待評"]].map(([v,t])=>`<button type="button" data-g="${v}" aria-pressed="${v===S.grade}">${t}</button>`).join("");
+$("#gradeSeg").innerHTML=[["all","全部"],["S","S"],["A","A"],["B","B"],["C","C"],["none","待評"]].map(([v,t])=>`<button type="button" data-g="${v}" aria-pressed="${v===S.grade}">${t}</button>`).join("");
 $("#gradeSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;S.grade=b.dataset.g;[...$("#gradeSeg").children].forEach(x=>x.setAttribute("aria-pressed",x===b));renderList()});
 $("#q").addEventListener("input",e=>{S.q=e.target.value.trim().toLowerCase();renderList()});
 [["#fStage","stage"],["#fSource","source"],["#fNeed","need"],["#fDisc","disc"],["#fSort","sort"]].forEach(([s,k])=>$(s).addEventListener("change",e=>{S[k]=e.target.value;if(k==="sort")rememberUI();renderList()}));
@@ -272,7 +272,7 @@ function renderAll(){
 /* ---------- render: summary ---------- */
 function renderSummary(){
   const all=items();const n=all.length;
-  const g={A:0,B:0,C:0,"":0};all.forEach(c=>g[gradeOf(c)]++);
+  const g={S:0,A:0,B:0,C:0,"":0};all.forEach(c=>g[gradeOf(c)]++);
   const due=all.filter(c=>{const d=dayDiff(c.nextDate);return d!=null&&d<=7&&isActiveStage(c)}).length;
   const over=all.filter(c=>{const d=dayDiff(c.nextDate);return d!=null&&d<0&&isActiveStage(c)}).length;
   const bd=all.filter(c=>{const d=daysToBirthday(c);return d!=null&&d<=30}).length;
@@ -280,8 +280,8 @@ function renderSummary(){
   const seg=k=>n?`<span style="width:${g[k]/n*100}%;background:var(--g${k})"></span>`:"";
   $("#summary").innerHTML=`
     <div class="stat"><div class="k">名單總數 ・ 分級分佈</div><div class="v num">${n}<small>位</small></div>
-      <div class="dist">${seg("A")}${seg("B")}${seg("C")}</div>
-      <div class="dist-legend"><span><b style="color:var(--gA)">${g.A}</b>A</span><span><b style="color:var(--gB)">${g.B}</b>B</span><span><b style="color:var(--gC)">${g.C}</b>C</span>${g[""]?`<span><b>${g[""]}</b>待評</span>`:""}</div></div>
+      <div class="dist">${seg("S")}${seg("A")}${seg("B")}${seg("C")}</div>
+      <div class="dist-legend"><span><b style="color:var(--gS)">${g.S}</b>S</span><span><b style="color:var(--gA)">${g.A}</b>A</span><span><b style="color:var(--gB)">${g.B}</b>B</span><span><b style="color:var(--gC)">${g.C}</b>C</span>${g[""]?`<span><b>${g[""]}</b>待評</span>`:""}</div></div>
     <div class="stat"><div class="k">7 天內待跟進</div><div class="v num">${due}<small>位</small></div></div>
     <div class="stat"><div class="k">已逾期未聯絡</div><div class="v num ${over?"alert":""}">${over}<small>位</small></div></div>
     <button type="button" class="stat stat-btn" data-act="bday"><div class="k">30 天內壽星</div><div class="v num">${bd}<small>位</small></div>${bd?'<div class="more">查看名單 ›</div>':""}</button>
@@ -379,16 +379,16 @@ function renderAct(){
   const due=all.filter(c=>isActiveStage(c)&&c.nextDate&&dayDiff(c.nextDate)<=14).sort((a,b)=>a.nextDate<b.nextDate?-1:1);
   $("#actDue").innerHTML=due.length?due.map(c=>aItem(c,dueHtml(c))).join(""):`<li class="none">目前沒有待跟進的客戶</li>`;
   $("#actBday").innerHTML=bdayItems();
-  const idle=all.filter(c=>gradeOf(c)==="A"&&!c.nextDate&&isActiveStage(c)).sort((a,b)=>scoreOf(b).score-scoreOf(a).score);
+  const idle=all.filter(c=>["S","A"].includes(gradeOf(c))&&!c.nextDate&&isActiveStage(c)).sort((a,b)=>scoreOf(b).score-scoreOf(a).score);
   $("#actIdle").innerHTML=idle.length?idle.map(c=>aItem(c,`<span class="num">${scoreOf(c).score} 分</span>`)).join(""):`<li class="none">高分名單都已排程</li>`;
 }
 
 /* ---------- render: analysis ---------- */
 function renderAna(){
   const all=items();
-  const src=SOURCES.map(([k,t])=>{const l=all.filter(c=>c.source===k);const g={A:0,B:0,C:0};l.forEach(c=>{const x=gradeOf(c);if(x)g[x]++});return {k,t,n:l.length,g}}).filter(x=>x.n);
+  const src=SOURCES.map(([k,t])=>{const l=all.filter(c=>c.source===k);const g={S:0,A:0,B:0,C:0};l.forEach(c=>{const x=gradeOf(c);if(x)g[x]++});return {k,t,n:l.length,g}}).filter(x=>x.n);
   const mx=Math.max(1,...src.map(x=>x.n));
-  $("#anaSource").innerHTML=src.length?src.map(x=>`<div class="hbar"><span>${x.k} ${x.t}</span><span class="t" style="width:${x.n/mx*100}%">${["A","B","C"].map(k=>x.g[k]?`<i style="flex:${x.g[k]};background:var(--g${k})"></i>`:"").join("")}<i style="flex:${x.n-x.g.A-x.g.B-x.g.C};background:var(--line-2)"></i></span><span class="c">${x.n}</span></div>`).join(""):`<p class="sub">尚無資料</p>`;
+  $("#anaSource").innerHTML=src.length?src.map(x=>`<div class="hbar"><span>${x.k} ${x.t}</span><span class="t" style="width:${x.n/mx*100}%">${["S","A","B","C"].map(k=>x.g[k]?`<i style="flex:${x.g[k]};background:var(--g${k})"></i>`:"").join("")}<i style="flex:${x.n-x.g.S-x.g.A-x.g.B-x.g.C};background:var(--line-2)"></i></span><span class="c">${x.n}</span></div>`).join(""):`<p class="sub">尚無資料</p>`;
   const st=STAGES.map(s=>({t:s.t,n:all.filter(c=>(c.stage||"lead")===s.k).length}));const ms=Math.max(1,...st.map(x=>x.n));
   $("#anaStage").innerHTML=st.map(x=>`<div class="hbar"><span>${x.t}</span><span class="t"><i style="width:${x.n/ms*100}%"></i></span><span class="c">${x.n}</span></div>`).join("");
   const nd=P.needs.map(n=>({t:n,n:all.filter(c=>arr(c.needs).includes(n)).length})).filter(x=>x.n).sort((a,b)=>b.n-a.n);const mn=Math.max(1,...nd.map(x=>x.n));
@@ -405,7 +405,7 @@ function renderView(){
 /* ---------- render: team back office ---------- */
 function advisorStats(uidv){
   const l=[...Ctx.team.values()].filter(c=>c._owner===uidv);
-  const g={A:0,B:0,C:0,"":0};l.forEach(c=>g[gradeOf(c)]++);
+  const g={S:0,A:0,B:0,C:0,"":0};l.forEach(c=>g[gradeOf(c)]++);
   const wk=ymd(new Date(Date.now()-7*864e5));
   let logs7=0,last="";
   l.forEach(c=>{arr(c.logs).forEach(x=>{if((x.d||"")>=wk)logs7++});if((c.updatedAt||"")>last)last=c.updatedAt||""});
@@ -413,7 +413,7 @@ function advisorStats(uidv){
     over:l.filter(c=>isActiveStage(c)&&c.nextDate&&dayDiff(c.nextDate)<0).length,
     due:l.filter(c=>isActiveStage(c)&&c.nextDate&&dayDiff(c.nextDate)>=0&&dayDiff(c.nextDate)<=7).length,
     won:l.filter(c=>c.stage==="won"||c.stage==="referral").length,
-    sa:g.A,logs7,last};
+    sa:g.S+g.A,logs7,last};
 }
 function renderTeam(){
   const users=Ctx.users;
@@ -421,12 +421,12 @@ function renderTeam(){
   const active=users.filter(u=>u.status==="active");
   const all=[...Ctx.team.values()];
   const over=all.filter(c=>isActiveStage(c)&&c.nextDate&&dayDiff(c.nextDate)<0).length;
-  const sa=all.filter(c=>gradeOf(c)==="A").length;
+  const sa=all.filter(c=>["S","A"].includes(gradeOf(c))).length;
   const loading=!Ctx.teamReady||!Ctx.usersReady;
   $("#teamSummary").innerHTML=`
     <div class="stat"><div class="k">已開通業務</div><div class="v num">${active.length}<small>位</small></div></div>
     <div class="stat"><div class="k">團隊名單總數</div><div class="v num">${loading?"–":all.length}<small>位</small></div></div>
-    <div class="stat"><div class="k">A 級名單</div><div class="v num">${loading?"–":sa}<small>位</small></div></div>
+    <div class="stat"><div class="k">S／A 級名單</div><div class="v num">${loading?"–":sa}<small>位</small></div></div>
     <div class="stat"><div class="k">逾期未聯絡</div><div class="v num ${over?"alert":""}">${loading?"–":over}<small>位</small></div></div>
     <div class="stat"><div class="k">待開通申請</div><div class="v num ${pending.length?"alert":""}">${pending.length}<small>位</small></div></div>`;
   $("#pendPanel").hidden=!pending.length;
@@ -440,7 +440,7 @@ function renderTeam(){
     return `<tr data-uid="${esc(u.id)}" class="${u.status==="disabled"?"off":""}">
       <td><div class="tname"><span class="avatar">${u.photoURL?`<img src="${esc(u.photoURL)}" alt="" referrerpolicy="no-referrer">`:esc(userName(u).slice(0,1))}</span><span>${esc(userName(u))}${u.id===Ctx.user.uid?' <em class="you">你</em>':""}<small>${esc(u.email||"")}</small></span></div></td>
       <td class="num r"><b>${s.n}</b></td>
-      <td><div class="mini">${s.n?["A","B","C"].map(k=>s.g[k]?`<span style="flex:${s.g[k]};background:var(--g${k})"></span>`:"").join("")+(s.g[""]?`<span style="flex:${s.g[""]};background:var(--line-2)"></span>`:""):""}</div><div class="mini-l num">A ${s.g.A} ・ B ${s.g.B} ・ C ${s.g.C}</div></td>
+      <td><div class="mini">${s.n?["S","A","B","C"].map(k=>s.g[k]?`<span style="flex:${s.g[k]};background:var(--g${k})"></span>`:"").join("")+(s.g[""]?`<span style="flex:${s.g[""]};background:var(--line-2)"></span>`:""):""}</div><div class="mini-l num">S ${s.g.S} ・ A ${s.g.A} ・ B ${s.g.B} ・ C ${s.g.C}</div></td>
       <td class="num r ${s.over?"bad":""}">${s.over}</td>
       <td class="num r">${s.due}</td>
       <td class="num r">${s.won}</td>
