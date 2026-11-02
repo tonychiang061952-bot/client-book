@@ -397,7 +397,7 @@ document.addEventListener("change",e=>{const t=e.target.closest("select[data-mgr
 function mgrOptions(forId,current){
   const banned=new Set([forId,...(forId?downlinesOf(forId).map(u=>u.id):[])]);
   const opts=Ctx.users.filter(u=>u.status==="active"&&!banned.has(u.id)).sort((a,b)=>userName(a).localeCompare(userName(b),"zh-Hant"));
-  return `<option value="">最上層（無主管）</option>`+opts.map(u=>`<option value="${esc(u.id)}" ${u.id===current?"selected":""}>${esc(userName(u))}</option>`).join("");
+  return `<option value="">（未指定）</option>`+opts.map(u=>`<option value="${esc(u.id)}" ${u.id===current?"selected":""}>${esc(userName(u))}</option>`).join("");
 }
 async function setStatus(id,st,msg){try{await backend.setStatus(id,st);toast(msg)}catch(e){toast(errMsg(e,"更新失敗"))}}
 
@@ -496,21 +496,22 @@ function renderTeam(){
 function renderOrg(){
   const me=Ctx.user.uid;const leader=!Ctx.admin;
   const people=Ctx.users.filter(u=>u.status==="active");
-  const self=leader?{id:me,displayName:userName(Ctx.profile),email:Ctx.profile&&Ctx.profile.email,managerId:null,uplines:[]}:null;
+  const p=Ctx.profile||{};
+  const self=leader?{id:me,displayName:userName(p),email:p.email,photoURL:p.photoURL||Ctx.user.photoURL,managerId:null,uplines:[]}:null;
   const nodes=self?[self,...people]:people;
   const ids=new Set(nodes.map(u=>u.id));
-  const kids=id=>nodes.filter(u=>u.managerId===id).sort((a,b)=>userName(a).localeCompare(userName(b),"zh-Hant"));
-  const roots=self?[self]:nodes.filter(u=>!u.managerId||!ids.has(u.managerId)).sort((a,b)=>userName(a).localeCompare(userName(b),"zh-Hant"));
-  if(!S.orgSel||!ids.has(S.orgSel))S.orgSel=me&&ids.has(me)?me:(nodes[0]&&nodes[0].id)||null;
-  const sel=S.orgSel;const selAdmin=!leader&&Ctx.adminRoles.has(sel);
-  const under=new Set(nodes.filter(u=>arr(u.uplines).includes(sel)).map(u=>u.id));
-  const cls=id=>id===sel?"sel":(selAdmin||under.has(id))?"can":"no";
-  const render=list=>`<ul>${list.map(u=>{const c=kids(u.id);return `<li><button type="button" class="org-node ${cls(u.id)}" data-org="${esc(u.id)}" aria-pressed="${u.id===sel}"><span>${esc(userName(u))}</span>${c.length?`<small>帶 ${nodes.filter(x=>arr(x.uplines).includes(u.id)).length} 位</small>`:""}</button>${c.length?render(c):""}</li>`}).join("")}</ul>`;
+  const byName=(a,b)=>userName(a).localeCompare(userName(b),"zh-Hant");
+  const kids=id=>nodes.filter(u=>u.managerId===id).sort(byName);
+  const roots=self?[self]:nodes.filter(u=>!u.managerId||!ids.has(u.managerId)).sort(byName);
+  const statOf=id=>{if(leader&&id===me){const l=[...Ctx.my.values()].filter(c=>!c.demo);return {n:l.length,sa:l.filter(c=>["S","A"].includes(gradeOf(c))).length}}return advisorStats(id)};
+  const stats=new Map(nodes.map(u=>[u.id,statOf(u.id)]));
+  const card=u=>{const c=kids(u.id).length;const team=nodes.filter(x=>arr(x.uplines).includes(u.id));const teamN=team.reduce((a,x)=>a+stats.get(x.id).n,0);const st=stats.get(u.id);const role=Ctx.adminRoles.get(u.id);
+    const badges=`${u.id===me?'<em class="you">你</em>':""}${role==="owner"?'<em class="org-b admin">擁有者</em>':role?'<em class="org-b admin">管理員</em>':""}${c?'<em class="org-b lead">主管</em>':""}`;
+    return `<button type="button" class="org-card" data-org="${esc(u.id)}"><span class="avatar">${u.photoURL?`<img src="${esc(u.photoURL)}" alt="" referrerpolicy="no-referrer">`:esc(userName(u).slice(0,1))}</span><span class="org-info"><span class="org-name"><b>${esc(userName(u))}</b>${badges}</span><span class="org-stat num">名單 ${st.n} ・ S/A ${st.sa}</span>${c?`<span class="org-team num">團隊 ${team.length} 人 ・ 名單 ${teamN} 位</span>`:""}</span></button>`};
+  const render=list=>`<ul>${list.map(u=>{const c=kids(u.id);return `<li>${card(u)}${c.length?render(c):""}</li>`}).join("")}</ul>`;
   $("#orgTree").innerHTML=nodes.length?render(roots):`<p class="sub">還沒有已開通的成員。</p>`;
-  const su=nodes.find(u=>u.id===sel);
-  $("#orgNote").textContent=su?(selAdmin?`${userName(su)} 是管理員，看得到全部人的名單。`:under.size?`${userName(su)} 看得到底下 ${under.size} 位的名單，看不到其他人。`:`${userName(su)} 底下沒有成員，只看得到自己的名單。`):"";
 }
-document.addEventListener("click",e=>{const b=e.target.closest("[data-org]");if(!b)return;S.orgSel=b.dataset.org;renderOrg()});
+document.addEventListener("click",e=>{const b=e.target.closest("[data-org]");if(!b)return;if(!Ctx.admin&&b.dataset.org===Ctx.user.uid)setMode("mine");else setMode("advisor",b.dataset.org)});
 
 /* ---------- insights engine ---------- */
 const DISC_TIP={
