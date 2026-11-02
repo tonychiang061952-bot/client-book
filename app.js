@@ -51,6 +51,11 @@ const P={
 };
 const TAG_SUGGEST=["#孝順","#朋友多","#好工作","#愛家","#精打細算","#重面子","#熱心","#有影響力","#注重健康","#話題王","#夜貓子","#愛分享"];
 const LOG_TYPES=["電話","LINE","面談","活動","關懷／送禮","其他"];
+// 這次做到哪裡：之後依此計算工作量。舊客戶階段維持已成交，也算得到。
+const LOG_STEPS=[["contact","只是聯絡",null],["appt","約到見面","booked"],["meet","見到面","met"],["prop","送出建議書","proposal"],["deal","成交（新保單或加保）","won"],["renew","車險續保",null]];
+const logStepLabel=k=>(LOG_STEPS.find(x=>x[0]===k)||[])[1]||"";
+// 新客戶自動往前帶階段；已成交、轉介紹不動，也不會往回退
+function stageAfterStep(cur,step){const target=(LOG_STEPS.find(x=>x[0]===step)||[])[2];if(!target||cur==="won"||cur==="referral")return cur;if(cur==="hold")return target;const order=STAGES.map(s=>s.k);return order.indexOf(target)>order.indexOf(cur)?target:cur}
 const AREAS=["北屯區","西屯區","南屯區","北區","西區","中區","東區","南區","大里區","太平區","烏日區","豐原區","大雅區","潭子區","霧峰區","沙鹿區","龍井區","梧棲區","清水區","大肚區","神岡區","后里區","外縣市"];
 
 /* ---------- helpers ---------- */
@@ -741,16 +746,18 @@ function renderLog(){
     <div class="f2"><div class="field"><div class="lab">日期</div><input class="inp" type="date" id="lg-d" value="${today()}"></div>
     <div class="field"><div class="lab">方式</div><select class="inp" id="lg-t">${LOG_TYPES.map(t=>`<option>${t}</option>`).join("")}</select></div></div>
     <div class="field"><div class="lab">內容</div><textarea class="inp" id="lg-x" placeholder="聊了什麼、客戶的反應、下一步…"></textarea></div>
+    <div class="field"><div class="lab">這次做到哪裡<em>會計入工作量</em></div><select class="inp" id="lg-p">${LOG_STEPS.map(([k,t])=>`<option value="${k}">${t}</option>`).join("")}</select></div>
     <div class="f2"><div class="field"><div class="lab">下次聯絡日<em>選填，會同步更新</em></div><input class="inp" type="date" id="lg-n" value="${esc(c.nextDate||"")}"></div>
     <div class="field"><div class="lab">更新階段</div><select class="inp" id="lg-s">${STAGES.map(s=>`<option value="${s.k}" ${(c.stage||"lead")===s.k?"selected":""}>${s.t}</option>`).join("")}</select></div></div>
   </div>`)+
-  (logs.length?`<ul class="timeline">${logs.map(l=>`<li><div class="lt"><span class="num">${esc(l.d)}</span><span class="pill">${esc(l.t)}</span>${ro?"":`<button class="del" type="button" data-del="${esc(l.id)}" aria-label="刪除此筆">刪除</button>`}</div><div class="lx">${esc(l.x)}</div></li>`).join("")}</ul>`:`<p class="hint" style="text-align:center;padding:20px 0">${ro?"還沒有跟進紀錄。":"還沒有跟進紀錄。每次接觸後花 30 秒記下重點，下次聯絡就有話題。"}</p>`);
+  (logs.length?`<ul class="timeline">${logs.map(l=>`<li><div class="lt"><span class="num">${esc(l.d)}</span><span class="pill">${esc(l.t)}</span>${l.p&&l.p!=="contact"?`<span class="pill need">${esc(logStepLabel(l.p))}</span>`:""}${ro?"":`<button class="del" type="button" data-del="${esc(l.id)}" aria-label="刪除此筆">刪除</button>`}</div><div class="lx">${esc(l.x)}</div></li>`).join("")}</ul>`:`<p class="hint" style="text-align:center;padding:20px 0">${ro?"還沒有跟進紀錄。":"還沒有跟進紀錄。每次接觸後花 30 秒記下重點，下次聯絡就有話題。"}</p>`);
   $("#dFoot").innerHTML=`<span class="msg">共 ${logs.length} 筆紀錄${ro?" ・ 唯讀檢視":""}</span>${ro?"":'<button class="btn primary" type="button" id="lgAdd">新增紀錄</button>'}`;
   if(ro)return;
+  $("#lg-p").onchange=e=>{$("#lg-s").value=stageAfterStep(c.stage||"lead",e.target.value)};
   $("#lgAdd").onclick=async()=>{
     const x=$("#lg-x").value.trim();if(!x){toast("請填寫紀錄內容");$("#lg-x").focus();return}
     const c2=JSON.parse(JSON.stringify(S.draft));
-    c2.logs=arr(c2.logs).concat([{id:uid(),d:$("#lg-d").value||today(),t:$("#lg-t").value,x}]).slice(-200);
+    c2.logs=arr(c2.logs).concat([{id:uid(),d:$("#lg-d").value||today(),t:$("#lg-t").value,p:$("#lg-p").value,x}]).slice(-200);
     c2.nextDate=$("#lg-n").value||"";c2.stage=$("#lg-s").value;c2.lastContact=$("#lg-d").value||today();
     $("#lgAdd").disabled=true;
     if(await saveClient(c2)){S.draft=c2;toast("已記錄");renderDrawer()}else $("#lgAdd").disabled=false;
@@ -864,7 +871,7 @@ function exportClients(list,label,withOwner){
   const rows=list.map(c=>{const o={};if(withOwner){const u=userById(c._owner);o["負責業務"]=userName(u);o["業務 Email"]=u&&u.email||""}
     const sc=scoreOf(c);FLAT.forEach(([h,k])=>{let v=c[k];
     if(k==="_carPlate")v=arr(c.cars).map(x=>x.plate||"").join("、");else if(k==="_carStart")v=arr(c.cars).map(x=>x.start||"").join("、");else if(k==="_carEnd")v=arr(c.cars).map(x=>x.end||"").join("、");else if(k==="_score")v=sc.ready?sc.score:"";else if(k==="_grade")v=sc.ready?gradeLabel(c)+(sc.final?"":"（暫定）"):"待評";
-    else if(k==="_logs")v=arr(c.logs).slice().sort((a,b)=>a.d<b.d?-1:1).map(l=>`${l.d} ${l.t}：${l.x}`).join("\n");
+    else if(k==="_logs")v=arr(c.logs).slice().sort((a,b)=>a.d<b.d?-1:1).map(l=>`${l.d} ${l.t}${l.p&&l.p!=="contact"?`（${logStepLabel(l.p)}）`:""}：${l.x}`).join("\n");
     else if(k==="age"){const i=ageBand(c);v=isNum(i)?SCORE.age.opts[i]:""}
     else if(SCORE[k])v=isNum(v)?SCORE[k].opts[v]:"";
     else if(k==="jobCat")v=jobCatLabel(c);
