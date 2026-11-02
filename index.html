@@ -71,7 +71,7 @@ button{cursor:pointer}
 .btn[disabled]{opacity:.45;cursor:not-allowed}
 
 /* summary */
-.summary{display:grid;grid-template-columns:1.6fr repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-top:24px}
+.summary{display:grid;grid-template-columns:1.6fr repeat(5,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-top:24px}
 .stat{background:var(--surface);padding:16px 18px;min-width:0}
 .stat .k{font-size:12px;color:var(--muted);letter-spacing:.04em}
 .stat .v{font-family:var(--f-num);font-size:34px;font-weight:600;line-height:1.1;margin-top:4px;font-variant-numeric:lining-nums tabular-nums}
@@ -132,6 +132,8 @@ select.sel{padding:8px 30px 8px 10px;border:1px solid var(--line-2);border-radiu
 .bar i{display:block;height:100%;background:var(--gold-2)}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
 .pill{font-size:11.5px;padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--ink-2);white-space:nowrap}
+.pill.car{background:var(--warn-soft);color:var(--warn);font-weight:600}.pill.car.over{background:var(--bad-soft);color:var(--bad)}
+.car-box{background:var(--gold-soft);border:1px solid var(--gold-2);border-radius:10px;padding:12px 14px;margin:2px 0 14px}.car-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:9px}.car-h b{font-size:14px}.car-h span{font-size:12px;color:var(--ink-2)}.car-box .inp{background:var(--surface)}.car-box #carAdd{background:var(--surface)}.car-row{background:transparent;border-bottom:1px solid var(--gold-2);padding:0 0 10px;margin-bottom:10px}.f3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}.f3 .field{display:block;margin:0;min-width:0}.f3 .lab{display:block}.f3 .inp{width:100%;min-width:0}.car-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:7px;font-size:12.5px;color:var(--ink-2)}.car-st.soon{color:var(--warn);font-weight:600}.car-st.over{color:var(--bad);font-weight:600}.car-btns{display:flex;gap:4px}@media(max-width:560px){.f3{grid-template-columns:1fr}}
 .pill.need{background:var(--gold-soft);color:var(--gold)}
 .pill.tag{background:transparent;border:1px solid var(--line);color:var(--muted)}
 .stage{font-size:11.5px;padding:2px 8px;border-radius:4px;font-weight:500;white-space:nowrap}
@@ -150,7 +152,8 @@ select.sel{padding:8px 30px 8px 10px;border:1px solid var(--line-2);border-radiu
 
 /* action list */
 .cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
-@media (max-width:960px){.cols{grid-template-columns:1fr}}
+.cols.cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:960px){.cols,.cols.cols-2{grid-template-columns:1fr}}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;min-width:0}
 .panel h3{font-family:var(--f-display);font-size:16px;margin:0 0 2px}
 .panel .sub{font-size:12px;color:var(--muted);margin:0 0 12px}
@@ -498,8 +501,9 @@ table.team .muted{color:var(--muted)}
     </section>
 
     <section id="view-act" hidden>
-      <div class="cols" style="margin-top:18px">
+      <div class="cols cols-2" style="margin-top:18px">
         <div class="panel"><h3>待跟進</h3><p class="sub">已逾期與未來 14 天內的預定聯絡</p><ul class="alist" id="actDue"></ul></div>
+        <div class="panel"><h3>車險快到期</h3><p class="sub">到期前 30 天和過期 30 天內，提前聯絡續保</p><ul class="alist" id="actCar"></ul></div>
         <div class="panel"><h3>近期壽星</h3><p class="sub">未來 30 天生日，適合關懷問候</p><ul class="alist" id="actBday"></ul></div>
         <div class="panel"><h3>高分未排程</h3><p class="sub">S／A 級但尚未設定下次聯絡日</p><ul class="alist" id="actIdle"></ul></div>
       </div>

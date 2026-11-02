@@ -89,6 +89,12 @@ function scoreNote(c){const {ready,final,filled}=scoreOf(c);return ready&&!final
 const hasProperty=c=>isNum(c.property)&&c.property>=1;
 function gradeLabel(c){const g=gradeOf(c);return g&&hasProperty(c)?g+"+":g}
 function daysToBirthday(c){const d=parseD(c.birthday);if(!d)return null;const t=parseD(today());let n=new Date(t.getFullYear(),d.getMonth(),d.getDate());if(n<t)n=new Date(t.getFullYear()+1,d.getMonth(),d.getDate());return Math.round((n-t)/864e5)}
+/* 汽車保險：到期前 30 天提醒，過期 30 天內也繼續提醒 */
+const CAR_WINDOW=30;
+const carsOf=c=>arr(c.cars).filter(x=>x&&x.end);
+function carDueList(list){const out=[];list.forEach(c=>carsOf(c).forEach(car=>{const d=dayDiff(car.end);if(d!=null&&d<=CAR_WINDOW&&d>=-CAR_WINDOW)out.push({c,car,d})}));return out.sort((a,b)=>a.d-b.d)}
+const carDueText=d=>d<0?`已過期 ${-d} 天`:d===0?"今天到期":`${d} 天後到期`;
+function addYear(s){const d=parseD(s);if(!d)return "";d.setFullYear(d.getFullYear()+1);return ymd(d)}
 const isActiveStage=c=>!["won","hold"].includes(c.stage);
 
 /* ---------- session context ---------- */
@@ -295,6 +301,7 @@ function renderSummary(){
   const over=all.filter(c=>{const d=dayDiff(c.nextDate);return d!=null&&d<0&&isActiveStage(c)}).length;
   const bd=all.filter(c=>{const d=daysToBirthday(c);return d!=null&&d<=30}).length;
   const won=all.filter(c=>c.stage==="won"||c.stage==="referral").length;
+  const carN=carDueList(all).length;
   const seg=k=>n?`<span style="width:${g[k]/n*100}%;background:var(--g${k})"></span>`:"";
   $("#summary").innerHTML=`
     <div class="stat"><div class="k">名單總數 ・ 分級分佈</div><div class="v num">${n}<small>位</small></div>
@@ -303,6 +310,7 @@ function renderSummary(){
     <div class="stat"><div class="k">7 天內待跟進</div><div class="v num">${due}<small>位</small></div></div>
     <div class="stat"><div class="k">已逾期未聯絡</div><div class="v num ${over?"alert":""}">${over}<small>位</small></div></div>
     <button type="button" class="stat stat-btn" data-act="bday"><div class="k">30 天內壽星</div><div class="v num">${bd}<small>位</small></div>${bd?'<div class="more">查看名單 ›</div>':""}</button>
+    <button type="button" class="stat stat-btn" data-act="car" id="carTile"><div class="k">車險快到期</div><div class="v num ${carN?"alert":""}">${carN}<small>台</small></div>${carN?'<div class="more">查看名單 ›</div>':""}</button>
     <div class="stat"><div class="k">成交／轉介紹</div><div class="v num">${won}<small>位</small></div></div>`;
   const ac=$("#actCnt");ac.textContent=due;ac.classList.toggle("hot",over>0);
 }
@@ -314,7 +322,7 @@ function filtered(){
   if(S.stage)list=list.filter(c=>(c.stage||"lead")===S.stage);
   if(S.source)list=list.filter(c=>c.source===S.source);
   if(S.need)list=list.filter(c=>arr(c.needs).includes(S.need));
-  if(S.q){list=list.filter(c=>[c.name,c.job,c.jobCat,c.jobOther,c.area,c.note,c.referrer,arr(c.tags).join(" "),arr(c.needs).join(" "),arr(c.hobbies).join(" ")].join(" ").toLowerCase().includes(S.q))}
+  if(S.q){list=list.filter(c=>[c.name,c.job,c.jobCat,c.jobOther,c.area,c.note,c.referrer,arr(c.tags).join(" "),arr(c.needs).join(" "),arr(c.hobbies).join(" "),arr(c.cars).map(x=>x.plate).join(" ")].join(" ").toLowerCase().includes(S.q))}
   const by={
     score:(a,b)=>scoreOf(b).score-scoreOf(a).score||hasProperty(b)-hasProperty(a)||(a.no||0)-(b.no||0),
     next:(a,b)=>(a.nextDate||"9999")<(b.nextDate||"9999")?-1:(a.nextDate||"9999")>(b.nextDate||"9999")?1:0,
@@ -336,6 +344,7 @@ function cardHtml(c){
   const g=gradeOf(c);const {score,ready}=scoreOf(c);
   const needs=arr(c.needs).slice(0,3).map(n=>`<span class="pill need">${esc(n)}</span>`).join("");
   const tags=arr(c.tags).slice(0,3).map(t=>`<span class="pill tag">${esc(t)}</span>`).join("");
+  const carPill=carDueList([c]).map(({car,d})=>`<span class="pill car ${d<0?"over":""}">車險 ${carDueText(d)}${car.plate?"・"+esc(car.plate):""}</span>`).join("");
   return `<button type="button" class="card" data-id="${esc(keyOf(c))}">
     ${readOnly()?"":`<span class="card-del" data-del-client="${esc(c.id)}" role="button" aria-label="刪除 ${esc(c.name||"此客戶")}" title="刪除">×</span>`}
     <div class="card-head">
@@ -344,7 +353,7 @@ function cardHtml(c){
       <div class="score"><b class="num">${ready?score:"–"}</b><span>${scoreNote(c)}</span></div>
     </div>
     <div class="bar"><i style="width:${Math.max(0,Math.min(100,score/MAX_SCORE*100))}%"></i></div>
-    ${(needs||tags)?`<div class="chips">${needs}${tags}</div>`:""}
+    ${(carPill||needs||tags)?`<div class="chips">${carPill}${needs}${tags}</div>`:""}
     <div class="card-foot">${stageHtml(c.stage)}${dueHtml(c)}</div>
   </button>`;
 }
@@ -372,7 +381,7 @@ document.addEventListener("click",e=>{
   if(row&&!e.target.closest("button,select")){setMode("advisor",row.dataset.uid);return}
   const a=e.target.closest("[data-act]");if(!a)return;
   const act=a.dataset.act;
-  if(act==="new")openNew();else if(act==="import")openImport();else if(act==="demo")loadDemo();else if(act==="cleardemo")clearDemo();else if(act==="bday")openBdayList();
+  if(act==="new")openNew();else if(act==="import")openImport();else if(act==="demo")loadDemo();else if(act==="cleardemo")clearDemo();else if(act==="car")openCarList();else if(act==="bday")openBdayList();
   else if(act==="approve")approveUser(a.dataset.uid);
   else if(act==="enable")setStatus(a.dataset.uid,"active","已恢復");
   else if(act==="setadmin"){const u=userById(a.dataset.uid);showConfirm(`把「${userName(u)}」設為管理員？`,"管理員可以檢視全部成員的名單、開通或停用帳號、調整組織。","確認",async()=>{try{await backend.setAdmin(a.dataset.uid);toast("已設為管理員")}catch(e){toast(errMsg(e,"設定失敗"))}})}
@@ -403,6 +412,12 @@ function bdayItems(){
   const bd=items().map(c=>[c,daysToBirthday(c)]).filter(([c,d])=>d!=null&&d<=30).sort((a,b)=>a[1]-b[1]);
   return bd.length?bd.map(([c,d])=>aItem(c,`<span class="due ${d<=3?"soon":""}">${d===0?"今天生日":d+" 天後・"+c.birthday.slice(5).replace("-","/")}</span>`)).join(""):`<li class="none">30 天內沒有壽星</li>`;
 }
+function carItems(){const l=carDueList(items());return l.length?l.map(({c,car,d})=>aItem(c,`<span class="due ${d<0?"over":d<=7?"soon":""}">${esc(car.plate||"未填車牌")}・${carDueText(d)}</span>`)).join(""):`<li class="none">目前沒有快到期的車險</li>`}
+function openCarList(){
+  $("#modalRoot").innerHTML=`<div class="modal" role="dialog" aria-modal="true"><div class="modal-box"><h3>車險快到期</h3><p>到期前 30 天和過期 30 天內的車險，點名字可以打開客戶資料。</p><ul class="alist" id="carModal">${carItems()}</ul><div class="modal-actions"><button class="btn" type="button" id="mNo">關閉</button></div></div></div>`;
+  $("#mNo").onclick=()=>$("#modalRoot").innerHTML="";
+  $("#modalRoot .modal").onclick=e=>{if(e.target.classList.contains("modal"))$("#modalRoot").innerHTML=""};
+}
 function openBdayList(){
   $("#modalRoot").innerHTML=`<div class="modal" role="dialog" aria-modal="true"><div class="modal-box"><h3>30 天內壽星</h3><p>依生日先後排列，點名字可以打開客戶資料。</p><ul class="alist">${bdayItems()}</ul><div class="modal-actions"><button class="btn" type="button" id="mNo">關閉</button></div></div></div>`;
   $("#mNo").onclick=()=>$("#modalRoot").innerHTML="";
@@ -413,6 +428,7 @@ function renderAct(){
   const due=all.filter(c=>isActiveStage(c)&&c.nextDate&&dayDiff(c.nextDate)<=14).sort((a,b)=>a.nextDate<b.nextDate?-1:1);
   $("#actDue").innerHTML=due.length?due.map(c=>aItem(c,dueHtml(c))).join(""):`<li class="none">目前沒有待跟進的客戶</li>`;
   $("#actBday").innerHTML=bdayItems();
+  $("#actCar").innerHTML=carItems();
   const idle=all.filter(c=>["S","A"].includes(gradeOf(c))&&!c.nextDate&&isActiveStage(c)).sort((a,b)=>scoreOf(b).score-scoreOf(a).score);
   $("#actIdle").innerHTML=idle.length?idle.map(c=>aItem(c,`<span class="num">${scoreOf(c).score} 分</span>`)).join(""):`<li class="none">高分名單都已排程</li>`;
 }
@@ -546,6 +562,7 @@ function insights(c){
   const ch=arr(c.channel),ts=arr(c.timeslot);
   if(ch.length||ts.length)out.push(["聯絡","","偏好聯絡方式",[ch.join("、"),ts.join("、")].filter(Boolean).join(" ・ ")+(arr(c.hobbies).length?`。可聊的話題：${arr(c.hobbies).join("、")}。`:"")]);
   const bd=daysToBirthday(c);if(bd!=null&&bd<=30)out.push(["關懷","",bd===0?"今天生日":`${bd} 天後生日`,"準備生日問候或小禮物，是不談商品也能自然接觸的時機。"]);
+  carDueList([c]).forEach(({car,d})=>out.unshift(["車險","warn",`車險${carDueText(d)}`,`車牌 ${car.plate||"未填"}，保險期間 ${car.start||"未填"} 到 ${car.end}。提前聯絡，討論續保。`]));
   const nd=dayDiff(c.nextDate);if(nd!=null&&nd<0&&isActiveStage(c))out.unshift(["提醒","warn",`已逾期 ${-nd} 天未聯絡`,"原定 "+c.nextDate+" 聯絡，建議今天補上並更新下次聯絡日。"]);
   return {segName,segText,tips:out};
 }
@@ -602,7 +619,7 @@ function insHtml(c){
     +(()=>{const i=c.property;const ok=isNum(i);return bdItem(ok?(i>=1?"＋":"0"):"–","房產加分",ok?SCORE.property.opts[i]:"未填",!ok)})();
   const tips=I.tips.length?I.tips.map(([l,cls,h,p])=>`<div class="tip ${cls}"><span class="lbl">${esc(l)}</span><h5>${esc(h)}</h5><p>${esc(p)}</p></div>`).join(""):`<div class="tip"><span class="lbl">提示</span><h5>補上客戶習性</h5><p>在「客戶資料」填入決策方式與需求，這裡會產生具體的接觸建議。</p></div>`;
   const row=(k,v)=>v&&(Array.isArray(v)?v.length:true)?`<dt>${k}</dt><dd>${esc(Array.isArray(v)?v.join("、"):v)}</dd>`:"";
-  const prof=[row("經營階段",(STG[c.stage||"lead"]||{}).t),row("名單來源",c.source?c.source+" "+SRC[c.source]+(c.referrer?`（${c.referrer} 介紹）`:""):""),row("生日",c.birthday),row("職業",[jobCatLabel(c),c.job].filter(Boolean).join("・")),row("居住區域",c.area),row("電話",c.phone),row("LINE",c.line),row("子女",c.kids),row("扶養父母",c.parents),row("收入型態",c.incomeType),row("房貸狀態",c.loan),row("既有保單",c.policies),row("理財經驗",c.invest),row("風險屬性",c.risk),row("最在意",c.focus),row("對保險態度",c.attitude),row("增員潛力",c.recruit),row("Hashtag",c.tags),row("備註",c.note)].join("");
+  const prof=[row("經營階段",(STG[c.stage||"lead"]||{}).t),row("名單來源",c.source?c.source+" "+SRC[c.source]+(c.referrer?`（${c.referrer} 介紹）`:""):""),row("生日",c.birthday),row("職業",[jobCatLabel(c),c.job].filter(Boolean).join("・")),row("居住區域",c.area),row("電話",c.phone),row("LINE",c.line),row("子女",c.kids),row("扶養父母",c.parents),row("收入型態",c.incomeType),row("房貸狀態",c.loan),row("汽車保險",arr(c.cars).map(x=>`${x.plate||"未填車牌"}（${x.start||"未填"} 到 ${x.end||"未填"}）`)),row("既有保單",c.policies),row("理財經驗",c.invest),row("風險屬性",c.risk),row("最在意",c.focus),row("對保險態度",c.attitude),row("增員潛力",c.recruit),row("Hashtag",c.tags),row("備註",c.note)].join("");
   return `<div class="ins-hero"><div class="eyebrow">服務主軸</div><div class="seg-name">${esc(I.segName)}</div><p>${esc(I.segText)}</p><div class="breakdown">${bd}</div></div>
     <div class="tips">${tips}</div>
     <div class="sec" style="margin-top:14px;padding-bottom:14px"><div class="sec-h"><h4>客戶輪廓</h4><span>${c.demo?"示範資料":""}</span></div><dl class="kv">${prof||'<dt>—</dt><dd>尚無資料</dd>'}</dl></div>`;
@@ -623,6 +640,11 @@ function scoreField(k){
   const must=(k==="contact"||k==="approach")&&S.isNew;
   return `<div class="field"><div class="lab">${s.label}${must?"<em>必填</em>":""}</div>${optGroup(k,s.opts,{scored:s.pts})}</div>`;
 }
+function carRows(){return arr(S.draft.cars).map((x,i)=>{const d=dayDiff(x.end);const inWin=d!=null&&d<=CAR_WINDOW&&d>=-CAR_WINDOW;
+  return `<div class="car-row"><div class="f3"><label class="field"><span class="lab">車牌</span><input class="inp" id="car-plate-${i}" data-car="${i}" data-field="plate" type="text" value="${esc(x.plate||"")}" placeholder="ABC-1234" autocomplete="off"></label><label class="field"><span class="lab">保險起日</span><input class="inp" id="car-start-${i}" data-car="${i}" data-field="start" type="date" value="${esc(x.start||"")}"></label><label class="field"><span class="lab">保險迄日</span><input class="inp" id="car-end-${i}" data-car="${i}" data-field="end" type="date" value="${esc(x.end||"")}"></label></div><div class="car-foot"><span class="car-st ${inWin?(d<0?"over":"soon"):""}">${d==null?"填迄日後會自動提醒":inWin?carDueText(d):d<0?`已過期 ${-d} 天`:`還有 ${d} 天到期`}</span><span class="car-btns">${x.end?`<button class="btn ghost sm" type="button" data-car-act="renew" data-i="${i}">續保一年</button>`:""}<button class="btn ghost sm" type="button" data-car-act="del" data-i="${i}">刪除</button></span></div></div>`}).join("")}
+document.addEventListener("input",e=>{const t=e.target.closest("input[data-car]");if(!t||!S.draft)return;const x=arr(S.draft.cars)[+t.dataset.car];if(!x)return;x[t.dataset.field]=t.value;S.dirty=true});
+document.addEventListener("change",e=>{const t=e.target.closest("input[data-car]");if(!t||!S.draft||t.type!=="date")return;const x=arr(S.draft.cars)[+t.dataset.car];if(!x)return;if(t.dataset.field==="start"&&x.start&&!x.end)x.end=addYear(x.start);$("#carList").innerHTML=carRows()});
+document.addEventListener("click",e=>{const b=e.target.closest("[data-car-act]");if(!b||!S.draft)return;const act=b.dataset.carAct;if(act==="add"){S.draft.cars=[...arr(S.draft.cars),{id:uid(),plate:"",start:"",end:""}]}else{const i=+b.dataset.i;const list=arr(S.draft.cars).slice();if(act==="del")list.splice(i,1);if(act==="renew"&&list[i]){list[i]={...list[i],start:list[i].end,end:addYear(list[i].end)};toast("已續保一年，記得按儲存")}S.draft.cars=list}S.dirty=true;$("#carList").innerHTML=carRows()});
 function renderForm(){
   const c=S.draft;
   const f=(label,inner,cls="")=>`<div class="field ${cls}"><div class="lab">${label}</div>${inner}</div>`;
@@ -633,6 +655,7 @@ function renderForm(){
     ${f("生日",inp("birthday","date"))}${f("下次聯絡日",inp("nextDate","date"))}
     ${f("電話",inp("phone","tel","09xx-xxx-xxx"))}${f("LINE ID",inp("line","text",""))}
     ${f("職業（細項）",inp("job","text","例：國中老師、牙醫、餐廳老闆"))}${f("居住區域",inp("area","text","例：北屯區","list=\"areaList\""))}</div>
+    <div class="car-box" id="carSec"><div class="car-h"><b>汽車保險</b><span>到期前 30 天會提醒</span></div><div id="carList">${carRows()}</div><button class="btn" type="button" id="carAdd" data-car-act="add">＋ 新增一台車</button></div>
     ${f("性別",optGroup("gender",P.gender))}
     ${f("職業類別",optGroup("jobCat",P.jobCat)+`<input class="inp" id="f-jobOther" data-in="jobOther" type="text" value="${esc(c.jobOther||"")}" placeholder="請輸入職業類別，例如：農漁業、宗教人員、自由接案" style="margin-top:8px" ${c.jobCat==="其他"?"":"hidden"}>`)}
     ${f("名單來源",`<div class="opts" data-key="source" data-multi="0">${SOURCES.map(([k,t])=>`<button type="button" class="opt" data-v="${k}" aria-pressed="${c.source===k}">${k} ${t}</button>`).join("")}</div>`)}
@@ -701,6 +724,8 @@ async function saveDraft(){
   if(S.isNew&&(!isNum(c.contact)||!isNum(c.approach))){toast("請選擇交情和接近難易度");const o=document.querySelector(`.opts[data-key="${isNum(c.contact)?"approach":"contact"}"]`);if(o)o.scrollIntoView({block:"center"});return false}
   if(ageOf(c)!=null)c.age=ageBand(c);
   if(c.jobCat!=="其他")delete c.jobOther;else c.jobOther=(c.jobOther||"").trim();
+  if(arr(c.cars).some(x=>x.start&&x.end&&x.end<x.start)){toast("車險迄日不能早於起日");const o=$("#carSec");if(o)o.scrollIntoView({block:"center"});return false}
+  if(c.cars)c.cars=arr(c.cars).map(x=>({...x,plate:String(x.plate||"").trim().toUpperCase()})).filter(x=>x.plate||x.start||x.end);
   const btn=$("#btnSave");if(btn){btn.disabled=true;btn.textContent="儲存中…"}
   const ok=await saveClient(c);
   if(btn)btn.disabled=false;
@@ -801,7 +826,7 @@ function parseTemplate(rows){
   }
   return out;
 }
-const FLAT=[["編號","no"],["姓名","name"],["經營階段","stage"],["來源","source"],["介紹人","referrer"],["生日","birthday"],["性別","gender"],["職業類別","jobCat"],["職業","job"],["居住區域","area"],["電話","phone"],["LINE","line"],["每月收入","income"],["年齡","age"],["婚姻","marital"],["房產","property"],["交情","contact"],["接近難易度","approach"],["分數","_score"],["分級","_grade"],["子女階段","kids"],["扶養父母","parents"],["收入型態","incomeType"],["房貸狀態","loan"],["既有保單","policies"],["理財經驗","invest"],["風險屬性","risk"],["需求","needs"],["決策方式","decision"],["最在意","focus"],["對保險態度","attitude"],["聯絡管道","channel"],["聯絡時段","timeslot"],["興趣嗜好","hobbies"],["增員潛力","recruit"],["Hashtag","tags"],["下次聯絡日","nextDate"],["最近聯絡","lastContact"],["備註","note"],["跟進紀錄","_logs"]];
+const FLAT=[["編號","no"],["姓名","name"],["經營階段","stage"],["來源","source"],["介紹人","referrer"],["生日","birthday"],["性別","gender"],["職業類別","jobCat"],["職業","job"],["居住區域","area"],["電話","phone"],["LINE","line"],["每月收入","income"],["年齡","age"],["婚姻","marital"],["房產","property"],["交情","contact"],["接近難易度","approach"],["分數","_score"],["分級","_grade"],["子女階段","kids"],["扶養父母","parents"],["收入型態","incomeType"],["房貸狀態","loan"],["既有保單","policies"],["理財經驗","invest"],["風險屬性","risk"],["需求","needs"],["決策方式","decision"],["最在意","focus"],["對保險態度","attitude"],["聯絡管道","channel"],["聯絡時段","timeslot"],["興趣嗜好","hobbies"],["增員潛力","recruit"],["Hashtag","tags"],["下次聯絡日","nextDate"],["最近聯絡","lastContact"],["備註","note"],["車牌","_carPlate"],["車險起日","_carStart"],["車險到期日","_carEnd"],["跟進紀錄","_logs"]];
 const MULTI=["kids","incomeType","policies","invest","needs","channel","timeslot","hobbies","tags"];
 function parseFlat(objs){
   const out=[];let base=nextNo();
@@ -818,6 +843,9 @@ function parseFlat(objs){
       else if(k==="no")c.no=+v||c.no;
       else c[k]=String(v);
     });
+    const carCol=v=>v==null||v===""?[]:typeof v==="string"?v.split(/[、,，]\s*/):[v];
+    const ps=carCol(o["車牌"]),ss=carCol(o["車險起日"]),es=carCol(o["車險到期日"]);
+    if(ps.length||es.length){c.cars=Array.from({length:Math.max(ps.length,es.length)},(_,i)=>({id:uid(),plate:String(ps[i]||"").trim().toUpperCase(),start:ss[i]?toYmd(ss[i]):"",end:es[i]?toYmd(es[i]):""}))}
     c.name=name;out.push(c);
   });
   return out;
@@ -835,7 +863,7 @@ function exportClients(list,label,withOwner){
   list=list.slice().sort((a,b)=>withOwner?(userName(userById(a._owner)).localeCompare(userName(userById(b._owner)),"zh-Hant")||(a.no||0)-(b.no||0)):(a.no||0)-(b.no||0));
   const rows=list.map(c=>{const o={};if(withOwner){const u=userById(c._owner);o["負責業務"]=userName(u);o["業務 Email"]=u&&u.email||""}
     const sc=scoreOf(c);FLAT.forEach(([h,k])=>{let v=c[k];
-    if(k==="_score")v=sc.ready?sc.score:"";else if(k==="_grade")v=sc.ready?gradeLabel(c)+(sc.final?"":"（暫定）"):"待評";
+    if(k==="_carPlate")v=arr(c.cars).map(x=>x.plate||"").join("、");else if(k==="_carStart")v=arr(c.cars).map(x=>x.start||"").join("、");else if(k==="_carEnd")v=arr(c.cars).map(x=>x.end||"").join("、");else if(k==="_score")v=sc.ready?sc.score:"";else if(k==="_grade")v=sc.ready?gradeLabel(c)+(sc.final?"":"（暫定）"):"待評";
     else if(k==="_logs")v=arr(c.logs).slice().sort((a,b)=>a.d<b.d?-1:1).map(l=>`${l.d} ${l.t}：${l.x}`).join("\n");
     else if(k==="age"){const i=ageBand(c);v=isNum(i)?SCORE.age.opts[i]:""}
     else if(SCORE[k])v=isNum(v)?SCORE[k].opts[v]:"";
