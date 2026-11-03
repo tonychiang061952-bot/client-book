@@ -146,6 +146,13 @@ function carDueList(list){const out=[];list.forEach(c=>carsOf(c).forEach(car=>{c
 const carDueText=d=>d<0?`已過期 ${-d} 天`:d===0?"今天到期":`${d} 天後到期`;
 function addYear(s){const d=parseD(s);if(!d)return "";d.setFullYear(d.getFullYear()+1);return ymd(d)}
 const isActiveStage=c=>!["won","hold","joined"].includes(c.stage);
+/* 增員：超過 14 天沒聯絡就提醒。從最後一筆跟進算，沒有紀錄從加入名單那天算；有排下次聯絡日就照日期 */
+const REC_REMIND=14;
+const IG_TOUCH="IG 互動";
+function lastTouch(c){return arr(c.logs).map(l=>l.d||"").sort().pop()||String(c.createdAt||c.updatedAt||"").slice(0,10)}
+function daysSinceTouch(c){const d=dayDiff(lastTouch(c));return d==null?null:-d}
+function isStale(c){if(!isRec(c)||!isActiveStage(c)||c.nextDate)return false;const d=daysSinceTouch(c);return d!=null&&d>REC_REMIND}
+const touchedToday=c=>arr(c.logs).some(l=>l.d===today()&&l.t===IG_TOUCH);
 
 /* ---------- session context ---------- */
 const Ctx={
@@ -324,7 +331,7 @@ $("#userChip").addEventListener("click",openProfileEdit);
 
 /* ---------- 客戶／增員切換 ---------- */
 const FOOT_CLIENT=$(".foot-note").textContent;
-const FOOT_REC="增員評分分同業、白紙兩套：85 分以上為 S、70–84 為 A、55–69 為 B、未滿 55 為 C。兩套都是滿分 100。同業看推力和業績，推力沒選為待評，選「觀察中」顯示暫定。白紙看五項加交情和接近難易度，交情或接近難易度沒選為待評。有不清楚的項目時先算普通，顯示為暫定。兩套看的東西不同，同樣分數不代表同一件事，比較時請先用類型篩選。";
+const FOOT_REC="增員評分分同業、白紙兩套：85 分以上為 S、70–84 為 A、55–69 為 B、未滿 55 為 C。兩套都是滿分 100。同業看推力和業績，推力沒選為待評，選「觀察中」顯示暫定。白紙看五項加交情和接近難易度，交情或接近難易度沒選為待評。有不清楚的項目時先算普通，顯示為暫定。超過 14 天沒有跟進紀錄、也沒排下次聯絡日的人會被提醒，IG 互動也算聯絡；暫緩和已加入不提醒。兩套看的東西不同，同樣分數不代表同一件事，比較時請先用類型篩選。";
 function setBook(b){
   if(S.dirty){showConfirm("尚未儲存的修改","切換前會放棄這次的修改。","放棄並切換",()=>{S.dirty=false;closeDrawer(true);setBook(b)});return}
   closeDrawer(true);
@@ -388,6 +395,7 @@ function renderAll(){
 /* ---------- render: summary ---------- */
 function renderSummary(){
   if(Ctx.book==="rec"){renderRecSummary();return}
+  $("#summary").classList.remove("rec7");
   const all=items();const n=all.length;
   const g={S:0,A:0,B:0,C:0,"":0};all.forEach(c=>g[gradeOf(c)]++);
   const due=all.filter(c=>{const d=dayDiff(c.nextDate);return d!=null&&d<=7&&isActiveStage(c)}).length;
@@ -416,7 +424,9 @@ function renderRecSummary(){
   const talking=all.filter(c=>["booked","met","intro","apply"].includes(c.stage)).length;
   const joined=all.filter(c=>c.stage==="joined").length;
   const peer=all.filter(c=>c.rtype==="同業").length;
+  const stale=all.filter(isStale).length;
   const seg=k=>n?`<span style="width:${g[k]/n*100}%;background:var(--g${k})"></span>`:"";
+  $("#summary").classList.add("rec7");
   $("#summary").innerHTML=`
     <div class="stat"><div class="k">增員名單 ・ 分級分佈</div><div class="v num">${n}<small>位</small></div>
       <div class="dist">${seg("S")}${seg("A")}${seg("B")}${seg("C")}</div>
@@ -424,6 +434,7 @@ function renderRecSummary(){
     <div class="stat"><div class="k">同業／白紙</div><div class="v num">${peer}<small>／</small>${n-peer}</div></div>
     <div class="stat"><div class="k">7 天內待跟進</div><div class="v num">${due}<small>位</small></div></div>
     <div class="stat"><div class="k">已逾期未聯絡</div><div class="v num ${over?"alert":""}">${over}<small>位</small></div></div>
+    <button type="button" class="stat stat-btn" data-act="stale"><div class="k">超過 ${REC_REMIND} 天沒聯絡</div><div class="v num ${stale?"alert":""}">${stale}<small>位</small></div>${stale?'<div class="more">查看名單 ›</div>':""}</button>
     <div class="stat"><div class="k">正在談的人</div><div class="v num">${talking}<small>位</small></div></div>
     <div class="stat"><div class="k">已加入</div><div class="v num">${joined}<small>位</small></div></div>`;
   const ac=$("#actCnt");ac.textContent=due;ac.classList.toggle("hot",over>0);
@@ -448,6 +459,7 @@ function filtered(){
 function dueHtml(c){
   if(isRec(c)&&c.stage==="joined")return `<span class="due" style="color:var(--muted)">${ICON.cal}已加入團隊</span>`;
   if(isRec(c)&&c.stage==="hold")return `<span class="due" style="color:var(--muted)">${ICON.cal}暫緩中</span>`;
+  if(isStale(c))return `<span class="due over">${ICON.cal}${daysSinceTouch(c)} 天沒聯絡</span>`;
   if(!c.nextDate)return `<span class="due" style="color:var(--muted)">${ICON.cal}未排下次聯絡</span>`;
   const d=dayDiff(c.nextDate);const cls=d<0?"over":d<=3?"soon":"";
   const txt=d<0?`逾期 ${-d} 天`:d===0?"今天聯絡":d===1?"明天聯絡":`${c.nextDate.slice(5).replace("-","/")} 聯絡`;
@@ -470,7 +482,7 @@ function cardHtml(c){
     </div>
     <div class="bar"><i style="width:${Math.max(0,Math.min(100,score/MAX_SCORE*100))}%"></i></div>
     ${(carPill||needs||tags)?`<div class="chips">${carPill}${needs}${tags}</div>`:""}
-    <div class="card-foot">${stageHtml(c.stage)}${dueHtml(c)}</div>
+    <div class="card-foot">${stageHtml(c.stage)}${isRec(c)&&isActiveStage(c)&&!readOnly()?(touchedToday(c)?'<span class="touch done">今天已互動</span>':`<span class="touch" data-touch="${esc(c.id)}" role="button" aria-label="記錄今天和 ${esc(c.name||"他")} 在 IG 互動過">今天互動過</span>`):""}${dueHtml(c)}</div>
   </button>`;
 }
 function renderList(){
@@ -488,7 +500,15 @@ function renderList(){
   $("#resultLine").innerHTML=`顯示 ${list.length} / ${total} 位`+(demoN&&!readOnly()?` ・ 含 ${demoN} 筆示範資料 <button class="btn ghost" style="padding:2px 8px;font-size:12px" type="button" data-act="cleardemo">清除示範</button>`:"");
   area.innerHTML=list.length?`<div class="grid">${list.map(cardHtml).join("")}</div>`:`<div class="empty"><h3>沒有符合條件的${noun()}</h3><p>調整搜尋字詞或篩選條件看看。</p></div>`;
 }
+async function recordTouch(id){
+  const c=Ctx.my.get(id);if(!c||touchedToday(c))return;
+  const c2=JSON.parse(JSON.stringify(c));
+  c2.logs=arr(c2.logs).concat([{id:uid(),d:today(),t:IG_TOUCH,p:"contact",x:"IG 互動（按讚、留言或回限動）"}]).slice(-200);c2.lastContact=today();
+  if(await saveClient(c2))toast("已記錄 IG 互動");
+}
 document.addEventListener("click",e=>{
+  const touch=e.target.closest("[data-touch]");
+  if(touch){recordTouch(touch.dataset.touch);return}
   const del=e.target.closest("[data-del-client]");
   if(del){const id=del.dataset.delClient,c=Ctx.my.get(id);showConfirm("刪除「"+(c&&c.name||"這筆資料")+"」？",noun()+"資料與所有跟進紀錄都會刪除，無法復原。","確認刪除",async()=>{if(await removeClient(id))toast("已刪除")},true);return}
   const card=e.target.closest(".card[data-id], .alist button[data-id]");
@@ -497,7 +517,7 @@ document.addEventListener("click",e=>{
   if(row&&!e.target.closest("button,select")){setMode("advisor",row.dataset.uid);return}
   const a=e.target.closest("[data-act]");if(!a)return;
   const act=a.dataset.act;
-  if(act==="new")openNew();else if(act==="import")openImport();else if(act==="demo")loadDemo();else if(act==="cleardemo")clearDemo();else if(act==="car")openCarList();else if(act==="bday")openBdayList();
+  if(act==="new")openNew();else if(act==="import")openImport();else if(act==="demo")loadDemo();else if(act==="cleardemo")clearDemo();else if(act==="car")openCarList();else if(act==="bday")openBdayList();else if(act==="stale")openStaleList();
   else if(act==="approve")approveUser(a.dataset.uid);
   else if(act==="enable")setStatus(a.dataset.uid,"active","已恢復");
   else if(act==="setadmin"){const u=userById(a.dataset.uid);showConfirm(`把「${userName(u)}」設為管理員？`,"管理員可以檢視全部成員的名單、開通或停用帳號、調整組織。","確認",async()=>{try{await backend.setAdmin(a.dataset.uid);toast("已設為管理員")}catch(e){toast(errMsg(e,"設定失敗"))}})}
@@ -540,19 +560,26 @@ function openBdayList(){
   $("#modalRoot .modal").onclick=e=>{if(e.target.classList.contains("modal"))$("#modalRoot").innerHTML=""};
 }
 function setPanel(id,h,s){const p=$(id).parentElement;p.querySelector("h3").textContent=h;p.querySelector(".sub").textContent=s}
-function lastLog(c){return arr(c.logs).map(l=>l.d||"").sort().pop()||""}
+function staleItems(){
+  const l=items().filter(isStale).sort((a,b)=>scoreOf(b).score-scoreOf(a).score||daysSinceTouch(b)-daysSinceTouch(a));
+  return l.length?l.map(c=>aItem(c,`<span class="due over">${daysSinceTouch(c)} 天</span>`)).join(""):`<li class="none">目前沒有</li>`;
+}
+function openStaleList(){
+  $("#modalRoot").innerHTML=`<div class="modal" role="dialog" aria-modal="true"><div class="modal-box"><h3>超過 ${REC_REMIND} 天沒聯絡</h3><p>沒有排下次聯絡日的人，分數高的排前面。點名字可以打開資料。</p><ul class="alist">${staleItems()}</ul><div class="modal-actions"><button class="btn" type="button" id="mNo">關閉</button></div></div></div>`;
+  $("#mNo").onclick=()=>$("#modalRoot").innerHTML="";
+  $("#modalRoot .modal").onclick=e=>{if(e.target.classList.contains("modal"))$("#modalRoot").innerHTML=""};
+}
 function renderAct(){
   const all=items();
   if(Ctx.book==="rec"){
     setPanel("#actDue","待跟進","已逾期與未來 14 天內的預定聯絡");
-    setPanel("#actCar","聊到一半沒下文","超過 14 天沒有新紀錄");
+    setPanel("#actCar",`超過 ${REC_REMIND} 天沒聯絡`,"沒有排下次聯絡日的人，分數高的排前面");
     setPanel("#actBday","還沒開始聯絡","加進名單後一筆紀錄都沒有");
     setPanel("#actIdle","高分未排程","S／A 級但尚未設定下次聯絡日");
     const due=all.filter(c=>isActiveStage(c)&&c.nextDate&&dayDiff(c.nextDate)<=14).sort((a,b)=>a.nextDate<b.nextDate?-1:1);
     $("#actDue").innerHTML=due.length?due.map(c=>aItem(c,dueHtml(c))).join(""):`<li class="none">目前沒有待跟進的人</li>`;
-    const stale=all.filter(c=>isActiveStage(c)&&arr(c.logs).length&&dayDiff(lastLog(c))<=-14);
-    $("#actCar").innerHTML=stale.length?stale.map(c=>aItem(c,`<span class="due over">${-dayDiff(lastLog(c))} 天</span>`)).join(""):`<li class="none">目前沒有</li>`;
-    const never=all.filter(c=>isActiveStage(c)&&!arr(c.logs).length);
+    $("#actCar").innerHTML=staleItems();
+    const never=all.filter(c=>isActiveStage(c)&&!arr(c.logs).length&&!isStale(c));
     $("#actBday").innerHTML=never.length?never.map(c=>aItem(c,`<span class="due">開始</span>`)).join(""):`<li class="none">目前沒有</li>`;
     const idle2=all.filter(c=>["S","A"].includes(gradeOf(c))&&!c.nextDate&&isActiveStage(c));
     $("#actIdle").innerHTML=idle2.length?idle2.map(c=>aItem(c,`<span class="num">${scoreOf(c).score} 分</span>`)).join(""):`<li class="none">高分名單都已排程</li>`;
@@ -921,7 +948,7 @@ function renderLog(){
   const c=S.draft;const ro=readOnly();const logs=arr(c.logs).slice().sort((a,b)=>(b.d||"")<(a.d||"")?-1:1);
   $("#dBody").innerHTML=(ro?"":`<div class="log-add">
     <div class="f2"><div class="field"><div class="lab">日期</div><input class="inp" type="date" id="lg-d" value="${today()}"></div>
-    <div class="field"><div class="lab">方式</div><select class="inp" id="lg-t">${LOG_TYPES.map(t=>`<option>${t}</option>`).join("")}</select></div></div>
+    <div class="field"><div class="lab">方式</div><select class="inp" id="lg-t">${(isRec(c)?[IG_TOUCH,...LOG_TYPES]:LOG_TYPES).map(t=>`<option>${t}</option>`).join("")}</select></div></div>
     <div class="field"><div class="lab">內容</div><textarea class="inp" id="lg-x" placeholder="${isRec(c)?"聊了什麼、他的反應、下一步…":"聊了什麼、客戶的反應、下一步…"}"></textarea></div>
     <div class="field"><div class="lab">這次做到哪裡${isRec(c)?"":"<em>會計入工作量</em>"}</div><select class="inp" id="lg-p">${LOG_STEPS.map(([k,t])=>`<option value="${k}">${t}</option>`).join("")}</select></div>
     <div class="f2"><div class="field"><div class="lab">下次聯絡日<em>選填，會同步更新</em></div><input class="inp" type="date" id="lg-n" value="${esc(c.nextDate||"")}"></div>
