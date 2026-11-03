@@ -506,6 +506,8 @@ async function recordTouch(id){
   if(await saveClient(c2))toast("已記錄 IG 互動");
 }
 document.addEventListener("click",e=>{
+  const logDel=e.target.closest("[data-log-del]");
+  if(logDel){const id=logDel.dataset.logDel,c=Ctx.my.get(logDel.dataset.logOwner);if(!c)return;showConfirm("刪除這筆紀錄？","刪除後無法復原。","刪除",async()=>{const c2=JSON.parse(JSON.stringify(c));c2.logs=arr(c2.logs).filter(l=>l.id!==id);c2.lastContact=arr(c2.logs).map(l=>l.d||"").sort().pop()||"";if(await saveClient(c2))toast("已刪除")},true);return}
   const logOpen=e.target.closest("[data-log-open]");
   if(logOpen){openClient(logOpen.dataset.logOpen,"log");return}
   if(e.target.closest("#actLogMore")){logShow+=30;renderRecLogs();return}
@@ -576,7 +578,7 @@ function renderRecLogs(){
   const rows=[];items().forEach(c=>arr(c.logs).forEach((l,i)=>rows.push({c,l,i})));
   rows.sort((a,b)=>(b.l.d||"").localeCompare(a.l.d||"")||b.i-a.i);
   $("#actLogSub").textContent=rows.length?`最新的在最上面，共 ${rows.length} 筆。點一筆可以打開那個人的跟進紀錄。`:(readOnly()?"這位業務還沒有互動紀錄。":"按「今天互動過」或新增跟進紀錄後，會出現在這裡。");
-  $("#actLogs").innerHTML=rows.length?rows.slice(0,logShow).map(({c,l})=>`<li><button type="button" data-log-open="${esc(keyOf(c))}"><span class="an">${esc(c.name||"（未命名）")}<small>${esc(l.t||"")}${l.p&&l.p!=="contact"?"・"+esc(logStepLabel(l.p)):""}${l.x&&!l.x.startsWith(l.t||"\u0000")?"・"+esc(l.x):""}</small></span><span class="ad"><span class="num">${esc((l.d||"").replace(/-/g,"/"))}</span></span></button></li>`).join(""):`<li class="none">還沒有互動紀錄</li>`;
+  $("#actLogs").innerHTML=rows.length?rows.slice(0,logShow).map(({c,l})=>`<li class="log-row"><button type="button" data-log-open="${esc(keyOf(c))}"><span class="an">${esc(c.name||"（未命名）")}<small>${esc(l.t||"")}${l.p&&l.p!=="contact"?"・"+esc(logStepLabel(l.p)):""}${l.x&&!l.x.startsWith(l.t||"\u0000")?"・"+esc(l.x):""}</small></span><span class="ad"><span class="num">${esc((l.d||"").replace(/-/g,"/"))}</span></span></button>${readOnly()?"":`<button type="button" class="log-del" data-log-del="${esc(l.id||"")}" data-log-owner="${esc(c.id)}" aria-label="刪除 ${esc(c.name||"")} ${esc(l.d||"")} 這筆紀錄" title="刪除">×</button>`}</li>`).join(""):`<li class="none">還沒有互動紀錄</li>`;
   const more=$("#actLogMore");more.hidden=rows.length<=logShow;more.textContent=`再顯示 ${Math.min(30,rows.length-logShow)} 筆`;
 }
 function renderAct(){

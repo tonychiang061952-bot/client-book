@@ -358,6 +358,10 @@ table.team .muted{color:var(--muted)}
 .touch:hover{border-color:var(--ink-2)}
 .touch.done{border-color:transparent;background:transparent;color:var(--muted);cursor:default}
 .summary.rec7 .stat-btn{display:flex;flex-direction:column;justify-content:flex-start;align-items:flex-start;text-align:left}
+.log-row{display:flex;align-items:center;gap:4px}
+.log-row>button[data-log-open]{flex:1;min-width:0;width:auto}
+.alist .log-row .log-del{flex:none;width:28px;height:28px;padding:0;display:grid;place-items:center;border:0;border-radius:50%;background:none;color:var(--muted);font-size:16px;line-height:1;cursor:pointer}
+.alist .log-row .log-del:hover{background:var(--surface-2);color:var(--bad)}
 .bookbar{margin-top:20px;display:flex}
 .bookbar .seg button{padding:10px 22px;font-size:15px;font-weight:500}
 .add-why{display:flex;gap:8px;margin-top:8px}.add-why .inp{flex:1;min-width:0}
@@ -545,7 +549,7 @@ table.team .muted{color:var(--muted)}
 <div id="modalRoot"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script type="module" src="./app.js?v=20261103e"></script>
+<script type="module" src="./app.js?v=20261103f"></script>
 <script>
   // 若 15 秒後仍未載入（網路或瀏覽器封鎖），提示使用者
   setTimeout(function(){ if(!window.__booted){ var m=document.getElementById("bootMsg"); if(m) m.innerHTML="載入時間過長。請確認網路連線，或改用 Safari／Chrome 開啟此網址。<br><br><button class=\"btn\" onclick=\"location.reload()\">重新整理</button>"; } },15000);
