@@ -76,6 +76,30 @@ export const backend = {
 
   deleteClient(uid, cid) { return deleteDoc(doc(db, "users", uid, "clients", cid)); },
 
+  // ── 增員名單：跟客戶名單分開存在 users/{uid}/recruits ──
+  watchMyRecruits(uid, cb, err) {
+    return onSnapshot(collection(db, "users", uid, "recruits"),
+      snap => cb(snap.docs.map(d => ({ ...d.data(), id: d.id, book: "rec" }))), err);
+  },
+
+  saveRecruit(uid, c) {
+    const body = clean({ ...c, ownerUid: uid });
+    delete body._owner;
+    return setDoc(doc(db, "users", uid, "recruits", c.id), body);
+  },
+
+  deleteRecruit(uid, id) { return deleteDoc(doc(db, "users", uid, "recruits", id)); },
+
+  watchRecruitsOf(uid, cb, err) {
+    return onSnapshot(collection(db, "users", uid, "recruits"),
+      snap => cb(snap.docs.map(d => ({ ...d.data(), id: d.id, book: "rec", _owner: uid }))), err);
+  },
+
+  watchAllRecruits(cb, err) {
+    return onSnapshot(collectionGroup(db, "recruits"),
+      snap => cb(snap.docs.map(d => ({ ...d.data(), id: d.id, book: "rec", _owner: d.ref.parent.parent.id }))), err);
+  },
+
   // ── 主管：只讀自己的下線 ──
   watchDownlines(uid, cb, err) {
     return onSnapshot(query(collection(db, "users"), where("uplines", "array-contains", uid)),

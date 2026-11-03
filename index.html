@@ -353,6 +353,12 @@ table.team .muted{color:var(--muted)}
 .empty-row{text-align:center;color:var(--muted);padding:32px 14px!important}
 .d-tabs{margin-top:12px;border:0}
 
+.bookbar{margin-top:20px;display:flex}
+.bookbar .seg button{padding:10px 22px;font-size:15px;font-weight:500}
+.add-why{display:flex;gap:8px;margin-top:8px}.add-why .inp{flex:1;min-width:0}
+.join-box{background:var(--ok-soft);border:1px solid var(--ok);border-radius:10px;padding:14px;margin-bottom:14px}
+.join-box b{display:block;color:var(--ok);margin-bottom:2px}
+.join-box p{margin:0;font-size:13px;color:var(--ink-2)}
 </style>
 </head>
 <body>
@@ -435,6 +441,7 @@ table.team .muted{color:var(--muted)}
       <div class="top-row" id="mineActions">
         <button class="btn" id="btnImport" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 15V3m0 12-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>匯入 Excel</button>
         <button class="btn" id="btnExport" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m0-12-4 4m4-4 4 4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>匯出</button>
+        <button class="btn" id="btnFromClient" type="button" hidden>從客戶名單加入</button>
         <button class="btn primary" id="btnNew" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>新增客戶</button>
       </div>
     </div>
@@ -442,6 +449,7 @@ table.team .muted{color:var(--muted)}
 </header>
 
 <main class="wrap">
+  <div class="bookbar"><div class="seg" id="bookSeg" role="group" aria-label="切換名單"><button type="button" data-book="client" aria-pressed="true">客戶名單</button><button type="button" data-book="rec" aria-pressed="false">增員名單</button></div></div>
   <!-- 管理員：團隊後台 -->
   <div id="teamView" hidden>
     <section class="summary" id="teamSummary" aria-label="團隊摘要"></section>
@@ -461,7 +469,7 @@ table.team .muted{color:var(--muted)}
     </div>
     <div class="table-wrap">
       <table class="team">
-        <thead><tr><th>業務</th><th>直屬主管</th><th class="r">名單數</th><th>分級分佈</th><th class="r">逾期未聯絡</th><th class="r">7 天待跟進</th><th class="r">成交／轉介</th><th class="r">近 7 天跟進</th><th>最後更新</th><th></th></tr></thead>
+        <thead><tr><th>業務</th><th>直屬主管</th><th class="r">名單數</th><th>分級分佈</th><th class="r">逾期未聯絡</th><th class="r">7 天待跟進</th><th class="r" id="thWon">成交／轉介</th><th class="r">近 7 天跟進</th><th>最後更新</th><th></th></tr></thead>
         <tbody id="teamBody"></tbody>
       </table>
     </div>
@@ -531,7 +539,7 @@ table.team .muted{color:var(--muted)}
 <div id="modalRoot"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script type="module" src="./app.js"></script>
+<script type="module" src="./app.js?v=20261103"></script>
 <script>
   // 若 15 秒後仍未載入（網路或瀏覽器封鎖），提示使用者
   setTimeout(function(){ if(!window.__booted){ var m=document.getElementById("bootMsg"); if(m) m.innerHTML="載入時間過長。請確認網路連線，或改用 Safari／Chrome 開啟此網址。<br><br><button class=\"btn\" onclick=\"location.reload()\">重新整理</button>"; } },15000);

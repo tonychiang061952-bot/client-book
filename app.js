@@ -1,10 +1,13 @@
 // 客戶經營名單｜前端主程式
-import { backend } from "./backend.js";
+import { backend } from "./backend.js?v=20261103";
 import { TEAM } from "./config.js";
 
+// 網站剛更新時，瀏覽器可能拿到舊的 index.html 配新的程式
+if(!document.getElementById("bookSeg")){const m=document.getElementById("bootMsg");if(m)m.textContent="網站剛更新，請過幾分鐘再重新整理。";throw new Error("index.html 還是舊版")}
+
 /* ---------- option dictionaries ---------- */
-const SOURCES=[["A","親戚"],["B","朋友"],["C","鄉親"],["D","同好"],["E","消費"],["F","社團"],["G","同事"],["H","同學"],["I","老師"],["J","轉介"],["K","網路客"],["L","陌生開發"]];
-const SRC=Object.fromEntries(SOURCES);
+let SOURCES=[["A","親戚"],["B","朋友"],["C","鄉親"],["D","同好"],["E","消費"],["F","社團"],["G","同事"],["H","同學"],["I","老師"],["J","轉介"],["K","網路客"],["L","陌生開發"]];
+let SRC=Object.fromEntries(SOURCES);
 const SCORE={
   income:{label:"每月收入",opts:["2萬以下","2–4萬","4–7萬","7–10萬","10萬以上"],pts:[0,5,10,15,20]},
   age:{label:"年齡",opts:["25歲以下","26–35歲","36–45歲","46歲以上"],pts:[10,15,15,20]},
@@ -19,7 +22,7 @@ const ATT_PTS={"排斥保險":-15,"中立觀望":5,"認同規劃":15,"已有信�
 const ATT_LABEL="對保險的態度";
 const MID_PTS={income:10,age:15,marital:5,attitude:5}; // 不清楚時先算普通；交情、接近沒有預設值
 const SCORE_N=SCORE_KEYS.length+1;
-const STAGES=[
+let STAGES=[
   {k:"lead",t:"名單",c:"var(--muted)",b:"var(--surface-2)"},
   {k:"touched",t:"已聯繫",c:"var(--gB)",b:"var(--surface-2)"},
   {k:"booked",t:"已約訪",c:"var(--navy)",b:"var(--navy-soft)"},
@@ -29,7 +32,7 @@ const STAGES=[
   {k:"referral",t:"轉介紹",c:"var(--gold)",b:"var(--gold-soft)"},
   {k:"hold",t:"暫緩",c:"var(--bad)",b:"var(--bad-soft)"}
 ];
-const STG=Object.fromEntries(STAGES.map(s=>[s.k,s]));
+let STG=Object.fromEntries(STAGES.map(s=>[s.k,s]));
 const P={
   gender:["男","女"],
   jobCat:["軍公教","上班族","專業人士","醫護","業務","自營商","企業主","退休","家管","學生","其他"],
@@ -52,11 +55,52 @@ const P={
 const TAG_SUGGEST=["#孝順","#朋友多","#好工作","#愛家","#精打細算","#重面子","#熱心","#有影響力","#注重健康","#話題王","#夜貓子","#愛分享"];
 const LOG_TYPES=["電話","LINE","面談","活動","關懷／送禮","其他"];
 // 這次做到哪裡：之後依此計算工作量。舊客戶階段維持已成交，也算得到。
-const LOG_STEPS=[["contact","只是聯絡",null],["appt","約到見面","booked"],["meet","見到面","met"],["prop","送出建議書","proposal"],["deal","成交（新保單或加保）","won"],["renew","車險續保",null]];
+let LOG_STEPS=[["contact","只是聯絡",null],["appt","約到見面","booked"],["meet","見到面","met"],["prop","送出建議書","proposal"],["deal","成交（新保單或加保）","won"],["renew","車險續保",null]];
 const logStepLabel=k=>(LOG_STEPS.find(x=>x[0]===k)||[])[1]||"";
 // 新客戶自動往前帶階段；已成交、轉介紹不動，也不會往回退
-function stageAfterStep(cur,step){const target=(LOG_STEPS.find(x=>x[0]===step)||[])[2];if(!target||cur==="won"||cur==="referral")return cur;if(cur==="hold")return target;const order=STAGES.map(s=>s.k);return order.indexOf(target)>order.indexOf(cur)?target:cur}
+function stageAfterStep(cur,step){const target=(LOG_STEPS.find(x=>x[0]===step)||[])[2];if(!target||cur==="won"||cur==="referral"||cur==="joined")return cur;if(cur==="hold")return target;const order=STAGES.map(s=>s.k);return order.indexOf(target)>order.indexOf(cur)?target:cur}
 const AREAS=["北屯區","西屯區","南屯區","北區","西區","中區","東區","南區","大里區","太平區","烏日區","豐原區","大雅區","潭子區","霧峰區","沙鹿區","龍井區","梧棲區","清水區","大肚區","神岡區","后里區","外縣市"];
+
+/* ---------- 增員名單定義 ---------- */
+const CLIENT_DEF={SOURCES,SRC,STAGES,STG,LOG_STEPS};
+const REC_SOURCES=[["A","朋友同學"],["B","同業介紹"],["C","客戶轉增員"],["D","IG 留言"],["E","說明會"],["F","其他"]];
+const REC_STAGES=[
+  {k:"lead",t:"名單",c:"var(--muted)",b:"var(--surface-2)"},
+  {k:"touched",t:"已聯繫",c:"var(--gB)",b:"var(--surface-2)"},
+  {k:"booked",t:"已約聊",c:"var(--navy)",b:"var(--navy-soft)"},
+  {k:"met",t:"已聊過",c:"var(--navy)",b:"var(--navy-soft)"},
+  {k:"intro",t:"了解制度",c:"var(--warn)",b:"var(--warn-soft)"},
+  {k:"apply",t:"辦理加入",c:"var(--gold)",b:"var(--gold-soft)"},
+  {k:"joined",t:"已加入",c:"var(--ok)",b:"var(--ok-soft)"},
+  {k:"hold",t:"暫緩",c:"var(--bad)",b:"var(--bad-soft)"}
+];
+const REC_STEPS=[["contact","只是聯絡",null],["appt","約到見面聊","booked"],["meet","見面聊過","met"],["intro","聽完制度說明","intro"],["apply","開始辦理","apply"],["join","正式加入","joined"]];
+const REC_DEF={SOURCES:REC_SOURCES,SRC:Object.fromEntries(REC_SOURCES),STAGES:REC_STAGES,STG:Object.fromEntries(REC_STAGES.map(s=>[s.k,s])),LOG_STEPS:REC_STEPS};
+const REC_SCORE={
+  p_push:{label:"原單位的推力",opts:["觀察中","沒有不滿","有點不滿","常在抱怨","已經想走"],pts:[20,0,30,45,60],must:1},
+  p_prod:{label:"目前的業績",opts:["偏低","普通","不錯","頂尖"],pts:[0,15,30,40],mid:15},
+  b_view:{label:"對保險業的看法",opts:["排斥","中立","認同"],pts:[-15,5,20],mid:5},
+  b_drive:{label:"想改變現況的動力",opts:["沒想法","有點想","常在想","正在行動"],pts:[0,5,10,15],mid:5},
+  b_net:{label:"認識的人多不多",opts:["很少","普通","不少","很多"],pts:[0,5,10,15],mid:5},
+  b_comm:{label:"能接受沒有底薪嗎",opts:["不能","要考慮","可以"],pts:[0,5,10],mid:5},
+  b_family:{label:"家人的態度",opts:["反對","沒意見","支持"],pts:[0,3,5],mid:3}
+};
+Object.assign(SCORE,REC_SCORE);
+Object.keys(REC_SCORE).forEach(k=>{if(REC_SCORE[k].mid!=null)MID_PTS[k]=REC_SCORE[k].mid});
+const REC_KEYS={"同業":["p_push","p_prod"],"白紙":["b_view","b_drive","b_net","b_comm","b_family","contact","approach"]};
+const PUSH_WHY=["佣金打折、收入沒跟著長","會掉階","制度一改再改","晉升卡人力","主管搶件或壓業績","主管不教東西","人情壓力、單位文化差","業績或出席考核壓力","只能賣自家商品","早會學不到東西","被調單位、跨區打折"];
+const isPeer=c=>isRec(c)&&c.rtype==="同業";
+const isRec=c=>!!c&&c.book==="rec";
+const recKeys=c=>REC_KEYS[c.rtype]||REC_KEYS["同業"];
+const scoreN=c=>isRec(c)?recKeys(c).length:SCORE_N;
+const noun=()=>Ctx.book==="rec"?"增員對象":"客戶";
+function recScoreOf(c){
+  let s=0,filled=0;
+  for(const k of recKeys(c)){const i=c[k];if(isNum(i)&&SCORE[k].pts[i]!=null){s+=SCORE[k].pts[i];filled++}else if(MID_PTS[k]!=null)s+=MID_PTS[k]}
+  if(isPeer(c)&&c.p_push===0)filled--; // 觀察中還不算評定，顯示暫定
+  const ready=isPeer(c)?isNum(c.p_push):isNum(c.contact)&&isNum(c.approach);
+  return {score:ready?Math.min(MAX_SCORE,Math.max(0,s)):0,filled,ready,final:ready&&filled===recKeys(c).length};
+}
 
 /* ---------- helpers ---------- */
 const $=s=>document.querySelector(s);
@@ -82,6 +126,7 @@ const ICON={
 function ageOf(c){const d=parseD(c.birthday);if(!d)return null;const t=new Date();let a=t.getFullYear()-d.getFullYear();if(t.getMonth()<d.getMonth()||(t.getMonth()===d.getMonth()&&t.getDate()<d.getDate()))a--;return a>=0&&a<120?a:null}
 function ageBand(c){const a=ageOf(c);if(a!=null)return a<=25?0:a<=35?1:a<=45?2:3;return isNum(c.age)?c.age:null}
 function scoreOf(c){
+  if(isRec(c))return recScoreOf(c);
   let s=0,filled=0;
   for(const k of SCORE_KEYS){const i=k==="age"?ageBand(c):c[k];if(isNum(i)&&SCORE[k].pts[i]!=null){s+=SCORE[k].pts[i];filled++}else if(MID_PTS[k]!=null)s+=MID_PTS[k]}
   if(ATT_PTS[c.attitude]!=null){s+=ATT_PTS[c.attitude];filled++}else s+=MID_PTS.attitude;
@@ -90,7 +135,7 @@ function scoreOf(c){
 }
 function gradeOf(c){const {score,ready}=scoreOf(c);if(!ready)return "";return score>=85?"S":score>=70?"A":score>=55?"B":"C"}
 const isTemp=c=>{const r=scoreOf(c);return r.ready&&!r.final};
-function scoreNote(c){const {ready,final,filled}=scoreOf(c);return ready&&!final?`暫定 ${filled}/${SCORE_N}`:final?`/ ${MAX_SCORE}`:`${filled}/${SCORE_N}`}
+function scoreNote(c){const {ready,final,filled}=scoreOf(c);return ready&&!final?`暫定 ${filled}/${scoreN(c)}`:final?`/ ${MAX_SCORE}`:`${filled}/${scoreN(c)}`}
 const hasProperty=c=>isNum(c.property)&&c.property>=1;
 function gradeLabel(c){const g=gradeOf(c);return g&&hasProperty(c)?g+"+":g}
 function daysToBirthday(c){const d=parseD(c.birthday);if(!d)return null;const t=parseD(today());let n=new Date(t.getFullYear(),d.getMonth(),d.getDate());if(n<t)n=new Date(t.getFullYear()+1,d.getMonth(),d.getDate());return Math.round((n-t)/864e5)}
@@ -100,22 +145,23 @@ const carsOf=c=>arr(c.cars).filter(x=>x&&x.end);
 function carDueList(list){const out=[];list.forEach(c=>carsOf(c).forEach(car=>{const d=dayDiff(car.end);if(d!=null&&d<=CAR_WINDOW&&d>=-CAR_WINDOW)out.push({c,car,d})}));return out.sort((a,b)=>a.d-b.d)}
 const carDueText=d=>d<0?`已過期 ${-d} 天`:d===0?"今天到期":`${d} 天後到期`;
 function addYear(s){const d=parseD(s);if(!d)return "";d.setFullYear(d.getFullYear()+1);return ymd(d)}
-const isActiveStage=c=>!["won","hold"].includes(c.stage);
+const isActiveStage=c=>!["won","hold","joined"].includes(c.stage);
 
 /* ---------- session context ---------- */
 const Ctx={
   user:null,profile:null,admin:false,
   my:new Map(),myReady:false,
   team:new Map(),teamReady:false,users:[],usersReady:false,adminRoles:new Map(),
-  mode:"mine",viewUid:null,
+  mode:"mine",viewUid:null,book:"client",
   subs:{}
 };
 function stopSub(k){if(Ctx.subs[k]){try{Ctx.subs[k]()}catch(e){}delete Ctx.subs[k]}}
 function stopAll(){Object.keys(Ctx.subs).forEach(stopSub)}
 const readOnly=()=>Ctx.mode!=="mine";
+const inBook=c=>isRec(c)===(Ctx.book==="rec");
 function itemsMap(){
-  if(Ctx.mode==="advisor"){const m=new Map();for(const [k,c] of Ctx.team)if(c._owner===Ctx.viewUid)m.set(k,c);return m}
-  return Ctx.my;
+  if(Ctx.mode==="advisor"){const m=new Map();for(const [k,c] of Ctx.team)if(c._owner===Ctx.viewUid&&inBook(c))m.set(k,c);return m}
+  return new Map([...Ctx.my].filter(([k,c])=>inBook(c)));
 }
 const items=()=>[...itemsMap().values()];
 const ready=()=>Ctx.mode==="mine"?Ctx.myReady:Ctx.teamReady;
@@ -130,11 +176,11 @@ function orgWrites(uid,managerId){const up=uplinesFrom(managerId);const writes=[
 
 async function saveClient(c){
   c=JSON.parse(JSON.stringify(c));c.updatedAt=new Date().toISOString();
-  try{await backend.saveClient(Ctx.user.uid,c);Ctx.my.set(c.id,c);renderAll();return true}
+  try{await (isRec(c)?backend.saveRecruit:backend.saveClient)(Ctx.user.uid,c);Ctx.my.set(c.id,c);renderAll();return true}
   catch(e){toast(errMsg(e,"儲存失敗"));return false}
 }
 async function removeClient(id){
-  try{await backend.deleteClient(Ctx.user.uid,id);Ctx.my.delete(id);renderAll();return true}
+  try{await (isRec(Ctx.my.get(id))?backend.deleteRecruit:backend.deleteClient)(Ctx.user.uid,id);Ctx.my.delete(id);renderAll();return true}
   catch(e){toast(errMsg(e,"刪除失敗"));return false}
 }
 function errMsg(e,prefix){
@@ -208,12 +254,13 @@ function route(){
   if(p.status==="pending"){
     show("screen-pending");
     $("#pendName").value=p.displayName||"";$("#pendEmail").textContent=p.email||"";$("#pendUid").textContent=Ctx.user.uid;
-    stopSub("my");return;
+    stopSub("my");stopSub("myRec");return;
   }
-  if(p.status!=="active"){show("screen-disabled");stopSub("my");return}
+  if(p.status!=="active"){show("screen-disabled");stopSub("my");stopSub("myRec");return}
   show("screen-app");
   if(!Ctx.subs.my){
-    Ctx.subs.my=backend.watchMyClients(Ctx.user.uid,list=>{Ctx.my=new Map(list.map(c=>[c.id,c]));Ctx.myReady=true;renderAll()},err=>{toast(errMsg(err,"讀取名單失敗"));Ctx.myReady=true;renderAll()});
+    Ctx.subs.my=backend.watchMyClients(Ctx.user.uid,list=>{Ctx.my=new Map([...[...Ctx.my].filter(([k,c])=>isRec(c)),...list.map(c=>[c.id,c])]);Ctx.myReady=true;renderAll()},err=>{toast(errMsg(err,"讀取名單失敗"));Ctx.myReady=true;renderAll()});
+    Ctx.subs.myRec=backend.watchMyRecruits(Ctx.user.uid,list=>{Ctx.my=new Map([...[...Ctx.my].filter(([k,c])=>!isRec(c)),...list.map(c=>[c.id,c])]);renderAll()},err=>toast(errMsg(err,"讀取增員名單失敗")));
   }
   if(Ctx.admin&&!Ctx.subs.users){
     Ctx.subs.users=backend.watchUsers(list=>{Ctx.users=list;Ctx.usersReady=true;renderAll()},err=>toast(errMsg(err,"讀取業務名單失敗")));
@@ -234,11 +281,11 @@ $("#pendCopy").addEventListener("click",()=>copyText(Ctx.user.uid,"已複製使�
 // 主管沒有讀全團隊的權限，要逐位下線讀名單
 function syncLeaderClients(){
   const want=new Set(Ctx.users.filter(u=>u.status==="active").map(u=>u.id));
-  Object.keys(Ctx.subs).filter(k=>k.startsWith("tc_")&&!want.has(k.slice(3))).forEach(k=>{stopSub(k);const id=k.slice(3);for(const [key,c] of Ctx.team)if(c._owner===id)Ctx.team.delete(key)});
+  Object.keys(Ctx.subs).filter(k=>k.startsWith("tc_")&&!want.has(k.slice(3))).forEach(k=>{stopSub(k);const id=k.slice(3);stopSub("tr_"+id);for(const [key,c] of Ctx.team)if(c._owner===id)Ctx.team.delete(key)});
   const pending=[...want].filter(id=>!Ctx.subs["tc_"+id]);
   if(!pending.length&&!Ctx.teamReady){Ctx.teamReady=true;return}
   let left=pending.length;const done=()=>{if(left>0&&--left===0)Ctx.teamReady=true};
-  pending.forEach(id=>{let first=true;Ctx.subs["tc_"+id]=backend.watchClientsOf(id,list=>{for(const [key,c] of Ctx.team)if(c._owner===id)Ctx.team.delete(key);list.filter(c=>!c.demo).forEach(c=>Ctx.team.set(c.id+"@"+id,c));if(first){first=false;done()}renderAll()},err=>{console.error(err);if(first){first=false;done()}toast(errMsg(err,"讀取下線名單失敗"));renderAll()})});
+  pending.forEach(id=>{let first=true;Ctx.subs["tr_"+id]=backend.watchRecruitsOf(id,list=>{for(const [key,c] of Ctx.team)if(c._owner===id&&isRec(c))Ctx.team.delete(key);list.forEach(c=>Ctx.team.set(c.id+"@"+id,c));renderAll()},err=>console.error(err));Ctx.subs["tc_"+id]=backend.watchClientsOf(id,list=>{for(const [key,c] of Ctx.team)if(c._owner===id&&!isRec(c))Ctx.team.delete(key);list.filter(c=>!c.demo).forEach(c=>Ctx.team.set(c.id+"@"+id,c));if(first){first=false;done()}renderAll()},err=>{console.error(err);if(first){first=false;done()}toast(errMsg(err,"讀取下線名單失敗"));renderAll()})});
 }
 function setMode(mode,viewUid){
   if(S.dirty){showConfirm("尚未儲存的修改","切換前會放棄這次的修改。","放棄並切換",()=>{S.dirty=false;closeDrawer(true);setMode(mode,viewUid)});return}
@@ -246,7 +293,8 @@ function setMode(mode,viewUid){
   Ctx.mode=mode;Ctx.viewUid=viewUid||null;
   if(mode!=="mine"&&!Ctx.admin)syncLeaderClients();
   if(mode!=="mine"&&Ctx.admin&&!Ctx.subs.team){
-    Ctx.subs.team=backend.watchAllClients(list=>{Ctx.team=new Map(list.filter(c=>!c.demo).map(c=>[c.id+"@"+c._owner,c]));Ctx.teamReady=true;renderAll()},err=>{console.error(err);toast((err&&String(err.code).includes("failed-precondition"))?"團隊後台需要建立資料庫索引，請參考 README 常見問題":errMsg(err,"讀取團隊名單失敗"));Ctx.teamReady=true;renderAll()});
+    Ctx.subs.teamRec=backend.watchAllRecruits(list=>{Ctx.team=new Map([...[...Ctx.team].filter(([k,c])=>!isRec(c)),...list.map(c=>[c.id+"@"+c._owner,c])]);renderAll()},err=>console.error(err));
+    Ctx.subs.team=backend.watchAllClients(list=>{Ctx.team=new Map([...[...Ctx.team].filter(([k,c])=>isRec(c)),...list.filter(c=>!c.demo).map(c=>[c.id+"@"+c._owner,c])]);Ctx.teamReady=true;renderAll()},err=>{console.error(err);toast((err&&String(err.code).includes("failed-precondition"))?"團隊後台需要建立資料庫索引，請參考 README 常見問題":errMsg(err,"讀取團隊名單失敗"));Ctx.teamReady=true;renderAll()});
   }
   S.grade="all";S.stage=S.source=S.need=S.q="";$("#q").value="";["#fStage","#fSource","#fNeed"].forEach(s=>$(s).value="");
   [...$("#gradeSeg").children].forEach(x=>x.setAttribute("aria-pressed",x.dataset.g==="all"));
@@ -268,11 +316,50 @@ $("#q").addEventListener("input",e=>{S.q=e.target.value.trim().toLowerCase();ren
 document.querySelectorAll("#personal .tab").forEach(t=>t.addEventListener("click",()=>{S.view=t.dataset.view;rememberUI();renderView()}));
 $("#btnNew").addEventListener("click",()=>openNew());
 $("#btnImport").addEventListener("click",openImport);
-$("#btnExport").addEventListener("click",()=>exportClients(items(),Ctx.mode==="advisor"?`${userName(userById(Ctx.viewUid))}_客戶名單`:"我的客戶名單",false));
-$("#btnTeamExport").addEventListener("click",()=>exportClients([...Ctx.team.values()],"全團隊客戶名單",true));
+$("#btnExport").addEventListener("click",()=>exportClients(items(),Ctx.mode==="advisor"?`${userName(userById(Ctx.viewUid))}_${Ctx.book==="rec"?"增員名單":"客戶名單"}`:(Ctx.book==="rec"?"我的增員名單":"我的客戶名單"),false));
+$("#btnTeamExport").addEventListener("click",()=>exportClients([...Ctx.team.values()].filter(inBook),Ctx.book==="rec"?"全團隊增員名單":"全團隊客戶名單",true));
 $("#teamQ").addEventListener("input",e=>{S.teamQ=e.target.value.trim().toLowerCase();renderTeam()});
 $("#showDisabled").addEventListener("change",e=>{S.showDisabled=e.target.checked;renderTeam()});
 $("#userChip").addEventListener("click",openProfileEdit);
+
+/* ---------- 客戶／增員切換 ---------- */
+const FOOT_CLIENT=$(".foot-note").textContent;
+const FOOT_REC="增員評分分同業、白紙兩套：85 分以上為 S、70–84 為 A、55–69 為 B、未滿 55 為 C。兩套都是滿分 100。同業看推力和業績，推力沒選為待評，選「觀察中」顯示暫定。白紙看五項加交情和接近難易度，交情或接近難易度沒選為待評。有不清楚的項目時先算普通，顯示為暫定。兩套看的東西不同，同樣分數不代表同一件事，比較時請先用類型篩選。";
+function setBook(b){
+  if(S.dirty){showConfirm("尚未儲存的修改","切換前會放棄這次的修改。","放棄並切換",()=>{S.dirty=false;closeDrawer(true);setBook(b)});return}
+  closeDrawer(true);
+  Ctx.book=b;
+  const D=b==="rec"?REC_DEF:CLIENT_DEF;
+  SOURCES=D.SOURCES;SRC=D.SRC;STAGES=D.STAGES;STG=D.STG;LOG_STEPS=D.LOG_STEPS;
+  const rec=b==="rec";
+  fillSelect($("#fStage"),rec?"全部階段":"全部階段",STAGES.map(s=>[s.k,s.t]));
+  fillSelect($("#fSource"),"全部來源",SOURCES.map(([k,t])=>[k,k+" "+t]));
+  if(rec)fillSelect($("#fNeed"),"同業＋白紙",[["同業","同業"],["白紙","白紙"]]);
+  else fillSelect($("#fNeed"),"全部需求",P.needs.map(n=>[n,n]));
+  S.grade="all";S.stage=S.source=S.need=S.q="";$("#q").value="";
+  [...$("#gradeSeg").children].forEach(x=>x.setAttribute("aria-pressed",x.dataset.g==="all"));
+  $("#q").placeholder=rec?"搜尋姓名、工作、推力、備註":"搜尋姓名、職業、#標籤、備註";
+  document.querySelectorAll("#screen-app .brand [data-team-name]").forEach(e=>e.textContent=rec?"增員名單":TEAM.name);
+  document.querySelectorAll("#screen-app .brand [data-team-sub]").forEach(e=>e.textContent=rec?"保家佳團隊｜同業與白紙分開評分 × 跟進紀錄":TEAM.subtitle);
+  $("#btnNew").lastChild.textContent=rec?"新增增員對象":"新增客戶";
+  $("#btnImport").hidden=rec;$("#btnFromClient").hidden=!rec;
+  $("#fNeed").setAttribute("aria-label",rec?"類型":"需求");
+  $("#thWon").textContent=rec?"已加入":"成交／轉介";
+  $(".foot-note").textContent=rec?FOOT_REC:FOOT_CLIENT;
+  $("#drawer").setAttribute("aria-label",rec?"增員對象資料":"客戶資料");
+  [...$("#bookSeg").children].forEach(x=>x.setAttribute("aria-pressed",x.dataset.book===b));
+  renderAll();
+}
+$("#bookSeg").addEventListener("click",e=>{const x=e.target.closest("button[data-book]");if(x&&x.dataset.book!==Ctx.book)setBook(x.dataset.book)});
+function openFromClient(){
+  const added=new Set([...Ctx.my.values()].filter(isRec).map(r=>r.clientId));
+  const list=[...Ctx.my.values()].filter(c=>!isRec(c)&&!added.has(c.id)).sort((a,b)=>(a.name||"").localeCompare(b.name||"","zh-Hant"));
+  $("#modalRoot").innerHTML=`<div class="modal" role="dialog" aria-modal="true"><div class="modal-box"><h3>從客戶名單加入</h3><p>姓名、電話、LINE、職業、居住區域、交情和接近難易度會帶過來，不用重打。</p><input class="inp" id="pickQ" type="search" placeholder="搜尋客戶姓名" aria-label="搜尋客戶姓名" autocomplete="off" style="margin-bottom:10px"><ul class="alist" id="pickList">${list.map(c=>`<li data-n="${esc(c.name||"")}"><button type="button" data-pick="${esc(c.id)}"><span class="an">${esc(c.name)}<small>${esc(c.job||jobCatLabel(c)||"")}</small></span><span class="ad"><span class="due">選這位</span></span></button></li>`).join("")}</ul><div class="modal-actions"><button class="btn" type="button" id="mNo">關閉</button></div></div></div>`;
+  $("#mNo").onclick=()=>$("#modalRoot").innerHTML="";
+  $("#pickQ").oninput=e=>{const q=e.target.value.trim();document.querySelectorAll("#pickList li").forEach(li=>li.hidden=!!q&&!li.dataset.n.includes(q))};
+  $("#modalRoot .modal").onclick=e=>{if(e.target.classList.contains("modal"))$("#modalRoot").innerHTML="";const p=e.target.closest("[data-pick]");if(!p)return;const c=Ctx.my.get(p.dataset.pick);$("#modalRoot").innerHTML="";openNew();Object.assign(S.draft,{name:c.name,phone:c.phone||"",line:c.line||"",job:c.job||jobCatLabel(c)||"",area:c.area||"",contact:c.contact,approach:c.approach,source:"C",rtype:"白紙",alsoClient:true,clientId:c.id});S.dirty=true;renderDrawer()};
+}
+$("#btnFromClient").addEventListener("click",openFromClient);
 
 /* ---------- render: header & modes ---------- */
 function renderHeader(){
@@ -300,6 +387,7 @@ function renderAll(){
 
 /* ---------- render: summary ---------- */
 function renderSummary(){
+  if(Ctx.book==="rec"){renderRecSummary();return}
   const all=items();const n=all.length;
   const g={S:0,A:0,B:0,C:0,"":0};all.forEach(c=>g[gradeOf(c)]++);
   const due=all.filter(c=>{const d=dayDiff(c.nextDate);return d!=null&&d<=7&&isActiveStage(c)}).length;
@@ -320,14 +408,35 @@ function renderSummary(){
   const ac=$("#actCnt");ac.textContent=due;ac.classList.toggle("hot",over>0);
 }
 
+function renderRecSummary(){
+  const all=items();const n=all.length;
+  const g={S:0,A:0,B:0,C:0,"":0};all.forEach(c=>g[gradeOf(c)]++);
+  const due=all.filter(c=>{const d=dayDiff(c.nextDate);return d!=null&&d<=7&&isActiveStage(c)}).length;
+  const over=all.filter(c=>{const d=dayDiff(c.nextDate);return d!=null&&d<0&&isActiveStage(c)}).length;
+  const talking=all.filter(c=>["booked","met","intro","apply"].includes(c.stage)).length;
+  const joined=all.filter(c=>c.stage==="joined").length;
+  const peer=all.filter(c=>c.rtype==="同業").length;
+  const seg=k=>n?`<span style="width:${g[k]/n*100}%;background:var(--g${k})"></span>`:"";
+  $("#summary").innerHTML=`
+    <div class="stat"><div class="k">增員名單 ・ 分級分佈</div><div class="v num">${n}<small>位</small></div>
+      <div class="dist">${seg("S")}${seg("A")}${seg("B")}${seg("C")}</div>
+      <div class="dist-legend"><span><b style="color:var(--gS)">${g.S}</b>S</span><span><b style="color:var(--gA)">${g.A}</b>A</span><span><b style="color:var(--gB)">${g.B}</b>B</span><span><b style="color:var(--gC)">${g.C}</b>C</span>${g[""]?`<span><b>${g[""]}</b>待評</span>`:""}</div></div>
+    <div class="stat"><div class="k">同業／白紙</div><div class="v num">${peer}<small>／</small>${n-peer}</div></div>
+    <div class="stat"><div class="k">7 天內待跟進</div><div class="v num">${due}<small>位</small></div></div>
+    <div class="stat"><div class="k">已逾期未聯絡</div><div class="v num ${over?"alert":""}">${over}<small>位</small></div></div>
+    <div class="stat"><div class="k">正在談的人</div><div class="v num">${talking}<small>位</small></div></div>
+    <div class="stat"><div class="k">已加入</div><div class="v num">${joined}<small>位</small></div></div>`;
+  const ac=$("#actCnt");ac.textContent=due;ac.classList.toggle("hot",over>0);
+}
+
 /* ---------- render: list ---------- */
 function filtered(){
   let list=items();
   if(S.grade!=="all")list=list.filter(c=>S.grade==="none"?gradeOf(c)==="":gradeOf(c)===S.grade);
   if(S.stage)list=list.filter(c=>(c.stage||"lead")===S.stage);
   if(S.source)list=list.filter(c=>c.source===S.source);
-  if(S.need)list=list.filter(c=>arr(c.needs).includes(S.need));
-  if(S.q){list=list.filter(c=>[c.name,c.job,c.jobCat,c.jobOther,c.area,c.note,c.referrer,arr(c.tags).join(" "),arr(c.needs).join(" "),arr(c.hobbies).join(" "),arr(c.cars).map(x=>x.plate).join(" ")].join(" ").toLowerCase().includes(S.q))}
+  if(S.need)list=list.filter(c=>isRec(c)?c.rtype===S.need:arr(c.needs).includes(S.need));
+  if(S.q){list=list.filter(c=>[arr(c.p_pushWhy).join(" "),c.rtype,c.company,c.ig,c.name,c.job,c.jobCat,c.jobOther,c.area,c.note,c.referrer,arr(c.tags).join(" "),arr(c.needs).join(" "),arr(c.hobbies).join(" "),arr(c.cars).map(x=>x.plate).join(" ")].join(" ").toLowerCase().includes(S.q))}
   const by={
     score:(a,b)=>scoreOf(b).score-scoreOf(a).score||hasProperty(b)-hasProperty(a)||(a.no||0)-(b.no||0),
     next:(a,b)=>(a.nextDate||"9999")<(b.nextDate||"9999")?-1:(a.nextDate||"9999")>(b.nextDate||"9999")?1:0,
@@ -337,21 +446,23 @@ function filtered(){
   return list.sort(by[S.sort]||by.score);
 }
 function dueHtml(c){
+  if(isRec(c)&&c.stage==="joined")return `<span class="due" style="color:var(--muted)">${ICON.cal}已加入團隊</span>`;
+  if(isRec(c)&&c.stage==="hold")return `<span class="due" style="color:var(--muted)">${ICON.cal}暫緩中</span>`;
   if(!c.nextDate)return `<span class="due" style="color:var(--muted)">${ICON.cal}未排下次聯絡</span>`;
   const d=dayDiff(c.nextDate);const cls=d<0?"over":d<=3?"soon":"";
   const txt=d<0?`逾期 ${-d} 天`:d===0?"今天聯絡":d===1?"明天聯絡":`${c.nextDate.slice(5).replace("-","/")} 聯絡`;
   return `<span class="due ${cls}">${ICON.cal}${txt}</span>`;
 }
 function stageHtml(k){const s=STG[k||"lead"]||STG.lead;return `<span class="stage" style="color:${s.c};background:${s.b}">${s.t}</span>`}
-function metaLine(c){const a=ageOf(c);return [c.source?`${c.source} ${SRC[c.source]||""}`:"",a!=null?a+"歲":(isNum(c.age)?SCORE.age.opts[c.age]:""),c.job||jobCatLabel(c),c.area||""].filter(Boolean).join(" ・ ")}
+function metaLine(c){if(isRec(c))return [c.rtype,c.source?`${c.source} ${SRC[c.source]||""}`:"",(isPeer(c)?c.company:c.job)||"",c.area||""].filter(Boolean).join(" ・ ");const a=ageOf(c);return [c.source?`${c.source} ${SRC[c.source]||""}`:"",a!=null?a+"歲":(isNum(c.age)?SCORE.age.opts[c.age]:""),c.job||jobCatLabel(c),c.area||""].filter(Boolean).join(" ・ ")}
 function keyOf(c){return Ctx.mode==="advisor"?c.id+"@"+c._owner:c.id}
 function cardHtml(c){
   const g=gradeOf(c);const {score,ready}=scoreOf(c);
-  const needs=arr(c.needs).slice(0,3).map(n=>`<span class="pill need">${esc(n)}</span>`).join("");
+  const needs=isRec(c)?`${arr(c.p_pushWhy).slice(0,1).map(x=>`<span class="pill">推：${esc(x)}</span>`).join("")}${c.alsoClient?'<span class="pill need">也是客戶</span>':""}`:arr(c.needs).slice(0,3).map(n=>`<span class="pill need">${esc(n)}</span>`).join("");
   const tags=arr(c.tags).slice(0,3).map(t=>`<span class="pill tag">${esc(t)}</span>`).join("");
   const carPill=carDueList([c]).map(({car,d})=>`<span class="pill car ${d<0?"over":""}">車險 ${carDueText(d)}${car.plate?"・"+esc(car.plate):""}</span>`).join("");
   return `<button type="button" class="card" data-id="${esc(keyOf(c))}">
-    ${readOnly()?"":`<span class="card-del" data-del-client="${esc(c.id)}" role="button" aria-label="刪除 ${esc(c.name||"此客戶")}" title="刪除">×</span>`}
+    ${readOnly()?"":`<span class="card-del" data-del-client="${esc(c.id)}" role="button" aria-label="刪除 ${esc(c.name||"這筆資料")}" title="刪除">×</span>`}
     <div class="card-head">
       <div class="grade" data-g="${g}" data-temp="${isTemp(c)?1:0}">${gradeLabel(c)||"待評"}</div>
       <div class="who"><div class="name">${esc(c.name||"（未命名）")}<span class="no">No.${esc(c.no||"-")}</span>${c.demo?'<span class="demo-flag">示範</span>':""}</div><div class="meta">${esc(metaLine(c))||"&nbsp;"}</div></div>
@@ -368,18 +479,18 @@ function renderList(){
   const total=items().length;
   if(total===0){
     area.innerHTML=readOnly()?`<div class="empty"><h3>這位業務還沒有建立名單</h3><p>示範資料不會列入團隊後台。</p></div>`:
-      `<div class="empty"><h3>建立你的第一份經營名單</h3><p>可以直接匯入原本的「客戶名單」Excel 範本，或手動新增。想先看看系統怎麼運作，也可以載入 6 筆示範名單，之後一鍵清除。</p>
+      Ctx.book==="rec"?`<div class="empty"><h3>還沒有增員對象</h3><p>按右上角「新增增員對象」，或從客戶名單加入。</p></div>`:`<div class="empty"><h3>建立你的第一份經營名單</h3><p>可以直接匯入原本的「客戶名單」Excel 範本，或手動新增。想先看看系統怎麼運作，也可以載入 6 筆示範名單，之後一鍵清除。</p>
       <div class="row"><button class="btn primary" type="button" data-act="new">新增客戶</button><button class="btn" type="button" data-act="import">匯入 Excel</button><button class="btn ghost" type="button" data-act="demo">載入示範名單</button></div></div>`;
     $("#resultLine").textContent="";return;
   }
   const list=filtered();
   const demoN=items().filter(c=>c.demo).length;
   $("#resultLine").innerHTML=`顯示 ${list.length} / ${total} 位`+(demoN&&!readOnly()?` ・ 含 ${demoN} 筆示範資料 <button class="btn ghost" style="padding:2px 8px;font-size:12px" type="button" data-act="cleardemo">清除示範</button>`:"");
-  area.innerHTML=list.length?`<div class="grid">${list.map(cardHtml).join("")}</div>`:`<div class="empty"><h3>沒有符合條件的客戶</h3><p>調整搜尋字詞或篩選條件看看。</p></div>`;
+  area.innerHTML=list.length?`<div class="grid">${list.map(cardHtml).join("")}</div>`:`<div class="empty"><h3>沒有符合條件的${noun()}</h3><p>調整搜尋字詞或篩選條件看看。</p></div>`;
 }
 document.addEventListener("click",e=>{
   const del=e.target.closest("[data-del-client]");
-  if(del){const id=del.dataset.delClient,c=Ctx.my.get(id);showConfirm("刪除「"+(c&&c.name||"此客戶")+"」？","客戶資料與所有跟進紀錄都會刪除，無法復原。","確認刪除",async()=>{if(await removeClient(id))toast("已刪除")},true);return}
+  if(del){const id=del.dataset.delClient,c=Ctx.my.get(id);showConfirm("刪除「"+(c&&c.name||"這筆資料")+"」？",noun()+"資料與所有跟進紀錄都會刪除，無法復原。","確認刪除",async()=>{if(await removeClient(id))toast("已刪除")},true);return}
   const card=e.target.closest(".card[data-id], .alist button[data-id]");
   if(card){if(card.closest("#modalRoot"))$("#modalRoot").innerHTML="";openClient(card.dataset.id,"ins");return}
   const row=e.target.closest("tr[data-uid]");
@@ -428,8 +539,29 @@ function openBdayList(){
   $("#mNo").onclick=()=>$("#modalRoot").innerHTML="";
   $("#modalRoot .modal").onclick=e=>{if(e.target.classList.contains("modal"))$("#modalRoot").innerHTML=""};
 }
+function setPanel(id,h,s){const p=$(id).parentElement;p.querySelector("h3").textContent=h;p.querySelector(".sub").textContent=s}
+function lastLog(c){return arr(c.logs).map(l=>l.d||"").sort().pop()||""}
 function renderAct(){
   const all=items();
+  if(Ctx.book==="rec"){
+    setPanel("#actDue","待跟進","已逾期與未來 14 天內的預定聯絡");
+    setPanel("#actCar","聊到一半沒下文","超過 14 天沒有新紀錄");
+    setPanel("#actBday","還沒開始聯絡","加進名單後一筆紀錄都沒有");
+    setPanel("#actIdle","高分未排程","S／A 級但尚未設定下次聯絡日");
+    const due=all.filter(c=>isActiveStage(c)&&c.nextDate&&dayDiff(c.nextDate)<=14).sort((a,b)=>a.nextDate<b.nextDate?-1:1);
+    $("#actDue").innerHTML=due.length?due.map(c=>aItem(c,dueHtml(c))).join(""):`<li class="none">目前沒有待跟進的人</li>`;
+    const stale=all.filter(c=>isActiveStage(c)&&arr(c.logs).length&&dayDiff(lastLog(c))<=-14);
+    $("#actCar").innerHTML=stale.length?stale.map(c=>aItem(c,`<span class="due over">${-dayDiff(lastLog(c))} 天</span>`)).join(""):`<li class="none">目前沒有</li>`;
+    const never=all.filter(c=>isActiveStage(c)&&!arr(c.logs).length);
+    $("#actBday").innerHTML=never.length?never.map(c=>aItem(c,`<span class="due">開始</span>`)).join(""):`<li class="none">目前沒有</li>`;
+    const idle2=all.filter(c=>["S","A"].includes(gradeOf(c))&&!c.nextDate&&isActiveStage(c));
+    $("#actIdle").innerHTML=idle2.length?idle2.map(c=>aItem(c,`<span class="num">${scoreOf(c).score} 分</span>`)).join(""):`<li class="none">高分名單都已排程</li>`;
+    return;
+  }
+  setPanel("#actDue","待跟進","已逾期與未來 14 天內的預定聯絡");
+  setPanel("#actCar","車險快到期","到期前 30 天和過期 30 天內，提前聯絡續保");
+  setPanel("#actBday","近期壽星","未來 30 天生日，適合關懷問候");
+  setPanel("#actIdle","高分未排程","S／A 級但尚未設定下次聯絡日");
   const due=all.filter(c=>isActiveStage(c)&&c.nextDate&&dayDiff(c.nextDate)<=14).sort((a,b)=>a.nextDate<b.nextDate?-1:1);
   $("#actDue").innerHTML=due.length?due.map(c=>aItem(c,dueHtml(c))).join(""):`<li class="none">目前沒有待跟進的客戶</li>`;
   $("#actBday").innerHTML=bdayItems();
@@ -446,6 +578,9 @@ function renderAna(){
   $("#anaSource").innerHTML=src.length?src.map(x=>`<div class="hbar"><span>${x.k} ${x.t}</span><span class="t" style="width:${x.n/mx*100}%">${["S","A","B","C"].map(k=>x.g[k]?`<i style="flex:${x.g[k]};background:var(--g${k})"></i>`:"").join("")}<i style="flex:${x.n-x.g.S-x.g.A-x.g.B-x.g.C};background:var(--line-2)"></i></span><span class="c">${x.n}</span></div>`).join(""):`<p class="sub">尚無資料</p>`;
   const st=STAGES.map(s=>({t:s.t,n:all.filter(c=>(c.stage||"lead")===s.k).length}));const ms=Math.max(1,...st.map(x=>x.n));
   $("#anaStage").innerHTML=st.map(x=>`<div class="hbar"><span>${x.t}</span><span class="t"><i style="width:${x.n/ms*100}%"></i></span><span class="c">${x.n}</span></div>`).join("");
+  const rec=Ctx.book==="rec";
+  setPanel("#anaStage",rec?"增員漏斗":"經營漏斗","各階段人數");
+  const needPanel=$("#anaNeed").parentElement;needPanel.hidden=rec;needPanel.parentElement.classList.toggle("cols-2",rec);
   const nd=P.needs.map(n=>({t:n,n:all.filter(c=>arr(c.needs).includes(n)).length})).filter(x=>x.n).sort((a,b)=>b.n-a.n);const mn=Math.max(1,...nd.map(x=>x.n));
   $("#anaNeed").innerHTML=nd.length?nd.map(x=>`<div class="hbar"><span>${x.t}</span><span class="t"><i style="width:${x.n/mn*100}%;background:var(--gold-2)"></i></span><span class="c">${x.n}</span></div>`).join(""):`<p class="sub">尚未標記需求</p>`;
 }
@@ -457,7 +592,7 @@ function renderView(){
 
 /* ---------- render: team back office ---------- */
 function advisorStats(uidv){
-  const l=[...Ctx.team.values()].filter(c=>c._owner===uidv);
+  const l=[...Ctx.team.values()].filter(c=>c._owner===uidv&&inBook(c));
   const g={S:0,A:0,B:0,C:0,"":0};l.forEach(c=>g[gradeOf(c)]++);
   const wk=ymd(new Date(Date.now()-7*864e5));
   let logs7=0,last="";
@@ -465,24 +600,24 @@ function advisorStats(uidv){
   return {n:l.length,g,
     over:l.filter(c=>isActiveStage(c)&&c.nextDate&&dayDiff(c.nextDate)<0).length,
     due:l.filter(c=>isActiveStage(c)&&c.nextDate&&dayDiff(c.nextDate)>=0&&dayDiff(c.nextDate)<=7).length,
-    won:l.filter(c=>c.stage==="won"||c.stage==="referral").length,
+    won:l.filter(c=>c.stage==="won"||c.stage==="referral"||c.stage==="joined").length,
     sa:g.S+g.A,logs7,last};
 }
 function renderTeam(){
   const users=Ctx.users;
   const pending=users.filter(u=>u.status==="pending").sort((a,b)=>(tsDate(a.createdAt)||0)-(tsDate(b.createdAt)||0));
   const active=users.filter(u=>u.status==="active");
-  const all=[...Ctx.team.values()];
+  const all=[...Ctx.team.values()].filter(inBook);
   const leader=!Ctx.admin;
   $("#btnTeamExport").hidden=leader;$("#showDisabledWrap").hidden=leader;
-  $("#teamIntro").textContent=leader?"這裡只有你底下所有層級的成員。點選任一位，以唯讀模式查看他的名單。":"點選任一位業務，以唯讀模式查看他的名單、經營建議與跟進紀錄。示範資料不列入統計。";
+  $("#teamIntro").textContent=leader?"這裡只有你底下所有層級的成員。點選任一位，以唯讀模式查看他的名單。":(Ctx.book==="rec"?"點選任一位業務，以唯讀模式查看他的增員名單與跟進紀錄。":"點選任一位業務，以唯讀模式查看他的名單、經營建議與跟進紀錄。示範資料不列入統計。");
   renderOrg();
   const over=all.filter(c=>isActiveStage(c)&&c.nextDate&&dayDiff(c.nextDate)<0).length;
   const sa=all.filter(c=>["S","A"].includes(gradeOf(c))).length;
   const loading=!Ctx.teamReady||!Ctx.usersReady;
   $("#teamSummary").innerHTML=`
     <div class="stat"><div class="k">${leader?"我的組織人數":"已開通業務"}</div><div class="v num">${active.length}<small>位</small></div></div>
-    <div class="stat"><div class="k">團隊名單總數</div><div class="v num">${loading?"–":all.length}<small>位</small></div></div>
+    <div class="stat"><div class="k">${Ctx.book==="rec"?"團隊增員名單":"團隊名單總數"}</div><div class="v num">${loading?"–":all.length}<small>位</small></div></div>
     <div class="stat"><div class="k">S／A 級名單</div><div class="v num">${loading?"–":sa}<small>位</small></div></div>
     <div class="stat"><div class="k">逾期未聯絡</div><div class="v num ${over?"alert":""}">${loading?"–":over}<small>位</small></div></div>
     ${leader?"":`<div class="stat"><div class="k">待開通申請</div><div class="v num ${pending.length?"alert":""}">${pending.length}<small>位</small></div></div>`}`;
@@ -518,7 +653,7 @@ function renderOrg(){
   const byName=(a,b)=>userName(a).localeCompare(userName(b),"zh-Hant");
   const kids=id=>nodes.filter(u=>u.managerId===id).sort(byName);
   const roots=self?[self]:nodes.filter(u=>!u.managerId||!ids.has(u.managerId)).sort(byName);
-  const statOf=id=>{if(leader&&id===me){const l=[...Ctx.my.values()].filter(c=>!c.demo);return {n:l.length,sa:l.filter(c=>["S","A"].includes(gradeOf(c))).length}}return advisorStats(id)};
+  const statOf=id=>{if(leader&&id===me){const l=[...Ctx.my.values()].filter(c=>!c.demo&&inBook(c));return {n:l.length,sa:l.filter(c=>["S","A"].includes(gradeOf(c))).length}}return advisorStats(id)};
   const stats=new Map(nodes.map(u=>[u.id,statOf(u.id)]));
   const card=u=>{const c=kids(u.id).length;const team=nodes.filter(x=>arr(x.uplines).includes(u.id));const teamN=team.reduce((a,x)=>a+stats.get(x.id).n,0);const st=stats.get(u.id);const role=Ctx.adminRoles.get(u.id);
     const badges=`${u.id===me?'<em class="you">你</em>':""}${role==="owner"?'<em class="org-b admin">擁有者</em>':role?'<em class="org-b admin">管理員</em>':""}${c?'<em class="org-b lead">主管</em>':""}`;
@@ -574,8 +709,8 @@ function insights(c){
 
 /* ---------- drawer ---------- */
 function blank(){
-  const no=Ctx.my.size?[...Ctx.my.values()].reduce((m,c)=>Math.max(m,+c.no||0),0)+1:1;
-  return {id:uid(),no,name:"",stage:"lead",tags:[],needs:[],policies:[],invest:[],incomeType:[],channel:[],timeslot:[],hobbies:[],kids:[],logs:[],createdAt:new Date().toISOString()};
+  const no=items().reduce((m,c)=>Math.max(m,+c.no||0),0)+1;
+  return {id:uid(),no,name:"",stage:"lead",...(Ctx.book==="rec"?{book:"rec",rtype:"同業"}:{}),tags:[],needs:[],policies:[],invest:[],incomeType:[],channel:[],timeslot:[],hobbies:[],kids:[],logs:[],createdAt:new Date().toISOString()};
 }
 function openClient(key,tab){const c=itemsMap().get(key);if(!c)return;S.openId=key;S.draft=JSON.parse(JSON.stringify(c));S.dirty=false;S.dTab=tab||"ins";S.isNew=false;showDrawer()}
 function openNew(){if(readOnly())return;S.draft=blank();S.openId=null;S.isNew=true;S.dirty=false;S.dTab="edit";showDrawer()}
@@ -589,10 +724,10 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"){if($("#modalRoot").
 
 function renderHead(){
   const c=S.draft;const g=gradeOf(c);const {score,filled,ready}=scoreOf(c);const ro=readOnly();
-  const tabs=[!S.isNew&&["ins","經營建議"],!ro&&["edit","客戶資料"],!S.isNew&&["log",`跟進紀錄<span class="cnt">${arr(c.logs).length}</span>`]].filter(Boolean);
+  const rec=isRec(c);const tabs=[!S.isNew&&(rec?ro&&["ins","增員資料"]:["ins","經營建議"]),!ro&&["edit",rec?"增員資料":"客戶資料"],!S.isNew&&["log",`跟進紀錄<span class="cnt">${arr(c.logs).length}</span>`]].filter(Boolean);
   $("#dHead").innerHTML=`<div class="d-top"><div class="grade" data-g="${g}" data-temp="${isTemp(c)?1:0}" id="dGrade">${gradeLabel(c)||"待評"}</div>
-    <div style="min-width:0;flex:1"><h2>${esc(c.name||(S.isNew?"新增客戶":"（未命名）"))}</h2><div class="meta">${esc(metaLine(c))||"No."+c.no}</div></div>
-    <div class="score"><b class="num" id="dScore">${ready?score:"–"}</b><span id="dFilled">${isTemp(c)?scoreNote(c):filled+"/"+SCORE_N+" 項已評"}</span></div>
+    <div style="min-width:0;flex:1"><h2>${esc(c.name||(S.isNew?"新增"+noun():"（未命名）"))}</h2><div class="meta">${esc(metaLine(c))||"No."+c.no}</div></div>
+    <div class="score"><b class="num" id="dScore">${ready?score:"–"}</b><span id="dFilled">${isTemp(c)?scoreNote(c):filled+"/"+scoreN(c)+" 項已評"}</span></div>
     <button class="btn ghost d-close" type="button" id="dClose" aria-label="關閉">${ICON.close}</button></div>
     <div class="d-tabs tabs">${tabs.map(([k,t])=>`<button class="tab" type="button" data-dt="${k}" aria-selected="${S.dTab===k}">${t}</button>`).join("")}</div>`;
   $("#dClose").onclick=()=>closeDrawer();
@@ -600,11 +735,12 @@ function renderHead(){
     if(S.dirty&&b.dataset.dt!=="edit"){showConfirm("尚未儲存的修改","切換分頁前要先儲存嗎？","儲存並切換",async()=>{if(await saveDraft())openClient(S.openId,b.dataset.dt)});return}
     S.dTab=b.dataset.dt;renderDrawer()});
 }
-function liveHead(){const c=S.draft;const g=gradeOf(c);const {score,filled,ready}=scoreOf(c);const ge=$("#dGrade");ge.dataset.g=g;ge.dataset.temp=isTemp(c)?1:0;ge.textContent=gradeLabel(c)||"待評";$("#dScore").textContent=ready?score:"–";$("#dFilled").textContent=isTemp(c)?scoreNote(c):filled+"/"+SCORE_N+" 項已評"}
+function liveHead(){const c=S.draft;const g=gradeOf(c);const {score,filled,ready}=scoreOf(c);const ge=$("#dGrade");ge.dataset.g=g;ge.dataset.temp=isTemp(c)?1:0;ge.textContent=gradeLabel(c)||"待評";$("#dScore").textContent=ready?score:"–";$("#dFilled").textContent=isTemp(c)?scoreNote(c):filled+"/"+scoreN(c)+" 項已評"}
 function renderDrawer(){
   if(!S.draft)return;
   if(!S.isNew&&S.openId&&!S.dirty){const fresh=itemsMap().get(S.openId);if(fresh)S.draft=JSON.parse(JSON.stringify(fresh))}
   if(readOnly()&&S.dTab==="edit")S.dTab="ins";
+  if(isRec(S.draft)&&!readOnly()&&S.dTab==="ins")S.dTab="edit";
   renderHead();
   const body=$("#dBody"),foot=$("#dFoot");
   if(S.dTab==="ins"){
@@ -616,7 +752,15 @@ function renderDrawer(){
   else{renderForm()}
   body.scrollTop=0;
 }
+function recViewHtml(c){
+  const bdItem=(pt,k,v,miss)=>`<div class="bd ${miss?"miss":""}"><span class="p">${pt}</span><div class="k">${k}</div><div class="v">${v}</div></div>`;
+  const bd=recKeys(c).map(k=>{const i=c[k];const label=SCORE[k].label.replace("（交情）","");if(isNum(i))return bdItem(SCORE[k].pts[i],label,SCORE[k].opts[i],false);return MID_PTS[k]!=null?bdItem(MID_PTS[k],label,"不清楚，先算普通",true):bdItem("–",label,"未填",true)}).join("");
+  const row=(k,v)=>v?`<dt>${k}</dt><dd>${esc(v)}</dd>`:"";
+  const prof=[row("類型",c.rtype),row("增員階段",(STG[c.stage||"lead"]||{}).t),row("名單來源",c.source?c.source+" "+SRC[c.source]+(c.referrer?`（${c.referrer} 介紹）`:""):""),...(isPeer(c)?[row("目前服務的公司",c.company),row("居住區域",c.area),row("Instagram 名稱",c.ig)]:[row("現在的工作",c.job),row("居住區域",c.area),row("電話",c.phone)]),row("LINE",c.line),row("推力是什麼",arr(c.p_pushWhy).join("、")),row("備註",c.note)].join("");
+  return `<div class="sec" style="padding-bottom:14px"><div class="sec-h"><h4>${esc(c.rtype)}評分</h4><span>滿分 100</span></div><div class="breakdown">${bd}</div></div><div class="sec" style="padding-bottom:14px"><div class="sec-h"><h4>對象資料</h4></div><dl class="kv">${prof||"<dt>—</dt><dd>尚無資料</dd>"}</dl></div>`;
+}
 function insHtml(c){
+  if(isRec(c))return recViewHtml(c);
   const I=insights(c);
   const bdItem=(pt,k,v,miss)=>`<div class="bd ${miss?"miss":""}"><span class="p">${pt}</span><div class="k">${k}</div><div class="v">${v}</div></div>`;
   const bd=SCORE_KEYS.map(k=>{const i=k==="age"?ageBand(c):c[k];const ok=isNum(i);const label=SCORE[k].label.replace("（交情）","");if(ok)return bdItem(SCORE[k].pts[i],label,SCORE[k].opts[i],false);return MID_PTS[k]!=null?bdItem(MID_PTS[k],label,"不清楚，先算普通",true):bdItem("–",label,"未填",true)}).join("")
@@ -643,14 +787,46 @@ function scoreField(k){
   if(k==="age"){const a=ageOf(S.draft);return `<div class="field" id="ageField"><div class="lab">${s.label}<em>${a!=null?`依生日自動計算：${a} 歲`:"或填生日自動計算"}</em></div>${a!=null?`<div class="opts">${s.opts.map((o,i)=>`<span class="opt scored" aria-pressed="${ageBand(S.draft)===i}" style="cursor:default">${o}<small>${s.pts[i]}分</small></span>`).join("")}</div>`:optGroup("age",s.opts,{scored:s.pts})}</div>`}
   if(k==="property")return `<div class="field"><div class="lab">${s.label}<em>不計分，有房產者分級加「+」</em></div>${optGroup(k,s.opts,{scored:s.marks})}</div>`;
   const must=(k==="contact"||k==="approach")&&S.isNew;
-  return `<div class="field"><div class="lab">${s.label}${must?"<em>必填</em>":""}</div>${optGroup(k,s.opts,{scored:s.pts})}</div>`;
+  const hint=REC_SCORE[k]?(s.must?"<em>沒選就是待評</em>":`<em>不清楚可先不選，算 ${s.mid} 分</em>`):"";
+  return `<div class="field"><div class="lab">${s.label}${must?"<em>必填</em>":hint}</div>${optGroup(k,s.opts,{scored:s.pts})}</div>`;
 }
 function carRows(){return arr(S.draft.cars).map((x,i)=>{const d=dayDiff(x.end);const inWin=d!=null&&d<=CAR_WINDOW&&d>=-CAR_WINDOW;
   return `<div class="car-row"><div class="f3"><label class="field"><span class="lab">車牌</span><input class="inp" id="car-plate-${i}" data-car="${i}" data-field="plate" type="text" value="${esc(x.plate||"")}" placeholder="ABC-1234" autocomplete="off"></label><label class="field"><span class="lab">保險起日</span><input class="inp" id="car-start-${i}" data-car="${i}" data-field="start" type="date" value="${esc(x.start||"")}"></label><label class="field"><span class="lab">保險迄日</span><input class="inp" id="car-end-${i}" data-car="${i}" data-field="end" type="date" value="${esc(x.end||"")}"></label></div><div class="car-foot"><span class="car-st ${inWin?(d<0?"over":"soon"):""}">${d==null?"填迄日後會自動提醒":inWin?carDueText(d):d<0?`已過期 ${-d} 天`:`還有 ${d} 天到期`}</span><span class="car-btns">${x.end?`<button class="btn ghost sm" type="button" data-car-act="renew" data-i="${i}">續保一年</button>`:""}<button class="btn ghost sm" type="button" data-car-act="del" data-i="${i}">刪除</button></span></div></div>`}).join("")}
 document.addEventListener("input",e=>{const t=e.target.closest("input[data-car]");if(!t||!S.draft)return;const x=arr(S.draft.cars)[+t.dataset.car];if(!x)return;x[t.dataset.field]=t.value;S.dirty=true});
 document.addEventListener("change",e=>{const t=e.target.closest("input[data-car]");if(!t||!S.draft||t.type!=="date")return;const x=arr(S.draft.cars)[+t.dataset.car];if(!x)return;if(t.dataset.field==="start"&&x.start&&!x.end)x.end=addYear(x.start);$("#carList").innerHTML=carRows()});
 document.addEventListener("click",e=>{const b=e.target.closest("[data-car-act]");if(!b||!S.draft)return;const act=b.dataset.carAct;if(act==="add"){S.draft.cars=[...arr(S.draft.cars),{id:uid(),plate:"",start:"",end:""}]}else{const i=+b.dataset.i;const list=arr(S.draft.cars).slice();if(act==="del")list.splice(i,1);if(act==="renew"&&list[i]){list[i]={...list[i],start:list[i].end,end:addYear(list[i].end)};toast("已續保一年，記得按儲存")}S.draft.cars=list}S.dirty=true;$("#carList").innerHTML=carRows()});
+function pushOptions(){const out=[...PUSH_WHY];[...Ctx.my.values(),S.draft].forEach(c=>arr(c&&c.p_pushWhy).forEach(x=>{if(!out.includes(x))out.push(x)}));return out}
+function addPushWhy(){
+  const el=$("#f-pushNew");const v=(el.value||"").trim();if(!v){el.focus();return}
+  const a=arr(S.draft.p_pushWhy).slice();if(!a.includes(v))a.push(v);S.draft.p_pushWhy=a;S.dirty=true;
+  const t=$("#dBody").scrollTop;renderForm();$("#dBody").scrollTop=t;$("#f-pushNew").focus();
+}
+document.addEventListener("click",e=>{if(e.target.closest("#pushAdd"))addPushWhy()});
+document.addEventListener("keydown",e=>{if(e.target.id==="f-pushNew"&&e.key==="Enter"){if(e.isComposing||e.keyCode===229)return;e.preventDefault();addPushWhy()}});
+function renderRecForm(){
+  const c=S.draft;
+  const f=(label,inner)=>`<div class="field"><div class="lab">${label}</div>${inner}</div>`;
+  const inp=(key,type="text",ph="")=>`<input class="inp" id="f-${key}" data-in="${key}" type="${type}" value="${esc(c[key]||"")}" placeholder="${esc(ph)}">`;
+  $("#dBody").innerHTML=`
+  ${c.stage==="joined"&&!S.isNew?`<div class="join-box"><b>${esc(c.name)} 已加入</b><p>請他用 Google 登入名單工具，再請管理員開通，直屬主管選你。</p></div>`:""}
+  <div class="sec"><div class="sec-h"><h4>基本資料</h4><span>姓名為必填</span></div>
+    ${f("類型<em>同業和白紙的評分項目不同</em>",optGroup("rtype",["同業","白紙"]))}
+    <div class="f2">${f("姓名",inp("name","text","姓名"))}${f("增員階段",`<select class="inp" id="f-stage" data-in="stage">${STAGES.map(s=>`<option value="${s.k}" ${c.stage===s.k?"selected":""}>${s.t}</option>`).join("")}</select>`)}
+    ${isPeer(c)?f("Instagram 名稱",inp("ig","text","例：@xxxxx")):f("電話",inp("phone","tel","09xx-xxx-xxx"))}${f("LINE ID",inp("line"))}
+    ${isPeer(c)?f("目前服務的公司",inp("company","text","例：○○人壽")):f("現在的工作",inp("job","text","例：科技業工程師"))}${f("居住區域",inp("area","text","例：北屯區"))}
+    ${f("下次聯絡日",inp("nextDate","date"))}${f("介紹人",inp("referrer","text","選填"))}</div>
+    ${f("名單來源",`<div class="opts" data-key="source" data-multi="0">${SOURCES.map(([k,t])=>`<button type="button" class="opt" data-v="${k}" aria-pressed="${c.source===k}">${k} ${t}</button>`).join("")}</div>`)}
+  </div>
+  <div class="sec"><div class="sec-h"><h4>${esc(c.rtype)}評分</h4><span>${recKeys(c).length} 項計分・滿分 100</span></div>
+    ${isPeer(c)?scoreField("p_push")+f("推力是什麼<em>可複選・不計分</em>",optGroup("p_pushWhy",pushOptions(),{multi:true})+`<div class="add-why"><input class="inp" id="f-pushNew" type="text" placeholder="清單沒有的原因，自己填" aria-label="自己填推力原因"><button class="btn" type="button" id="pushAdd">新增項目</button></div>`)+scoreField("p_prod"):recKeys(c).map(scoreField).join("")}
+  </div>
+  <div class="sec"><div class="sec-h"><h4>備註</h4></div>
+    <div class="field"><textarea class="inp" id="f-note" data-in="note" aria-label="備註" placeholder="他最近的狀況、聊過什麼">${esc(c.note||"")}</textarea></div>
+  </div>`;
+  renderFormFoot();
+}
 function renderForm(){
+  if(isRec(S.draft)){renderRecForm();return}
   const c=S.draft;
   const f=(label,inner,cls="")=>`<div class="field ${cls}"><div class="lab">${label}</div>${inner}</div>`;
   const inp=(key,type="text",ph="",extra="")=>`<input class="inp" id="f-${key}" data-in="${key}" type="${type}" value="${esc(c[key]||"")}" placeholder="${esc(ph)}" ${extra}>`;
@@ -696,10 +872,10 @@ function renderForm(){
   renderFormFoot();
 }
 function renderFormFoot(){
-  $("#dFoot").innerHTML=`${S.isNew?'<span class="msg">新增後可記錄跟進</span>':'<button class="btn danger" type="button" id="btnDel">刪除</button>'}<div style="display:flex;gap:8px"><button class="btn" type="button" id="btnCancel">${S.isNew?"取消":"還原"}</button><button class="btn primary" type="button" id="btnSave">${S.isNew?"新增客戶":"儲存"}</button></div>`;
+  $("#dFoot").innerHTML=`${S.isNew?'<span class="msg">新增後可記錄跟進</span>':'<button class="btn danger" type="button" id="btnDel">刪除</button>'}<div style="display:flex;gap:8px"><button class="btn" type="button" id="btnCancel">${S.isNew?"取消":"還原"}</button><button class="btn primary" type="button" id="btnSave">${S.isNew?"新增"+noun():"儲存"}</button></div>`;
   $("#btnSave").onclick=saveDraft;
   $("#btnCancel").onclick=()=>{if(S.isNew){S.dirty=false;closeDrawer(true)}else{S.dirty=false;openClient(S.openId,"edit")}};
-  const del=$("#btnDel");if(del)del.onclick=()=>showConfirm("刪除「"+(S.draft.name||"此客戶")+"」？","客戶資料與所有跟進紀錄都會刪除，無法復原。","確認刪除",async()=>{const id=S.openId;S.dirty=false;closeDrawer(true);if(await removeClient(id))toast("已刪除")},true);
+  const del=$("#btnDel");if(del)del.onclick=()=>showConfirm("刪除「"+(S.draft.name||"這筆資料")+"」？",noun()+"資料與所有跟進紀錄都會刪除，無法復原。","確認刪除",async()=>{const id=S.openId;S.dirty=false;closeDrawer(true);if(await removeClient(id))toast("已刪除")},true);
 }
 $("#dBody").addEventListener("click",e=>{
   if(S.dTab!=="edit"||readOnly())return;
@@ -711,6 +887,7 @@ $("#dBody").addEventListener("click",e=>{
   if(multi){const a=arr(S.draft[key]).slice();const i=a.indexOf(v);i>=0?a.splice(i,1):a.push(v);S.draft[key]=a;b.setAttribute("aria-pressed",i<0)}
   else{const on=S.draft[key]===v;S.draft[key]=on?null:v;g.querySelectorAll(".opt").forEach(x=>x.setAttribute("aria-pressed",!on&&x===b));
     if(key==="jobCat"){const jo=$("#f-jobOther");if(jo){jo.hidden=S.draft.jobCat!=="其他";if(!jo.hidden)jo.focus()}}}
+  if(key==="rtype"){if(!S.draft.rtype)S.draft.rtype=v;const t=$("#dBody").scrollTop;S.dirty=true;renderHead();renderForm();$("#dBody").scrollTop=t;return}
   S.dirty=true;liveHead();
 });
 $("#dBody").addEventListener("input",e=>{
@@ -720,13 +897,13 @@ $("#dBody").addEventListener("input",e=>{
   else S.draft[k]=el.value;
   S.dirty=true;
   if(k==="birthday"){liveHead();const host=$("#ageField");if(host)host.outerHTML=scoreField("age")}
-  if(k==="name"){$("#dHead h2").textContent=el.value||"新增客戶"}
+  if(k==="name"){$("#dHead h2").textContent=el.value||"新增"+noun()}
 });
 $("#dBody").addEventListener("change",e=>{const el=e.target.closest("[data-in]");if(el&&el.tagName==="SELECT"){S.draft[el.dataset.in]=el.value;S.dirty=true}});
 async function saveDraft(){
   const c=S.draft;c.name=(c.name||"").trim();
-  if(!c.name){toast("請先填寫客戶姓名");const n=$("#f-name");if(n)n.focus();return false}
-  if(S.isNew&&(!isNum(c.contact)||!isNum(c.approach))){toast("請選擇交情和接近難易度");const o=document.querySelector(`.opts[data-key="${isNum(c.contact)?"approach":"contact"}"]`);if(o)o.scrollIntoView({block:"center"});return false}
+  if(!c.name){toast("請先填寫姓名");const n=$("#f-name");if(n)n.focus();return false}
+  if(S.isNew&&!isPeer(c)&&(!isNum(c.contact)||!isNum(c.approach))){toast("請選擇交情和接近難易度");const o=document.querySelector(`.opts[data-key="${isNum(c.contact)?"approach":"contact"}"]`);if(o)o.scrollIntoView({block:"center"});return false}
   if(ageOf(c)!=null)c.age=ageBand(c);
   if(c.jobCat!=="其他")delete c.jobOther;else c.jobOther=(c.jobOther||"").trim();
   if(arr(c.cars).some(x=>x.start&&x.end&&x.end<x.start)){toast("車險迄日不能早於起日");const o=$("#carSec");if(o)o.scrollIntoView({block:"center"});return false}
@@ -745,8 +922,8 @@ function renderLog(){
   $("#dBody").innerHTML=(ro?"":`<div class="log-add">
     <div class="f2"><div class="field"><div class="lab">日期</div><input class="inp" type="date" id="lg-d" value="${today()}"></div>
     <div class="field"><div class="lab">方式</div><select class="inp" id="lg-t">${LOG_TYPES.map(t=>`<option>${t}</option>`).join("")}</select></div></div>
-    <div class="field"><div class="lab">內容</div><textarea class="inp" id="lg-x" placeholder="聊了什麼、客戶的反應、下一步…"></textarea></div>
-    <div class="field"><div class="lab">這次做到哪裡<em>會計入工作量</em></div><select class="inp" id="lg-p">${LOG_STEPS.map(([k,t])=>`<option value="${k}">${t}</option>`).join("")}</select></div>
+    <div class="field"><div class="lab">內容</div><textarea class="inp" id="lg-x" placeholder="${isRec(c)?"聊了什麼、他的反應、下一步…":"聊了什麼、客戶的反應、下一步…"}"></textarea></div>
+    <div class="field"><div class="lab">這次做到哪裡${isRec(c)?"":"<em>會計入工作量</em>"}</div><select class="inp" id="lg-p">${LOG_STEPS.map(([k,t])=>`<option value="${k}">${t}</option>`).join("")}</select></div>
     <div class="f2"><div class="field"><div class="lab">下次聯絡日<em>選填，會同步更新</em></div><input class="inp" type="date" id="lg-n" value="${esc(c.nextDate||"")}"></div>
     <div class="field"><div class="lab">更新階段</div><select class="inp" id="lg-s">${STAGES.map(s=>`<option value="${s.k}" ${(c.stage||"lead")===s.k?"selected":""}>${s.t}</option>`).join("")}</select></div></div>
   </div>`)+
@@ -806,7 +983,7 @@ function readFile(file){
       const ws=wb.Sheets[wb.SheetNames[0]];
       const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
       pending=String(rows[0]&&rows[0][0]||"").includes("來源種類")?parseTemplate(rows):parseFlat(XLSX.utils.sheet_to_json(ws,{raw:true,defval:""}));
-      const names=new Set([...Ctx.my.values()].map(c=>c.name));
+      const names=new Set([...Ctx.my.values()].filter(c=>!isRec(c)).map(c=>c.name));
       const dup=pending.filter(c=>names.has(c.name)).length;pending=pending.filter(c=>!names.has(c.name));
       $("#impRes").innerHTML=pending.length?`找到 <b>${pending.length}</b> 位可匯入的客戶${dup?`（另有 ${dup} 位同名已略過）`:""}：${esc(pending.slice(0,6).map(c=>c.name).join("、"))}${pending.length>6?"…":""}`:`沒有找到可匯入的客戶${dup?`（${dup} 位同名已存在）`:""}。請確認是原始範本或本系統匯出的檔案。`;
       $("#impOk").disabled=!pending.length;
@@ -815,7 +992,7 @@ function readFile(file){
   r.readAsArrayBuffer(file);
 }
 function toYmd(v){if(v instanceof Date&&!isNaN(v))return ymd(v);if(typeof v==="number"){const d=XLSX.SSF.parse_date_code(v);return d?d.y+"-"+pad(d.m)+"-"+pad(d.d):""}if(typeof v==="string"){const m=/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/.exec(v);if(m)return m[1]+"-"+pad(m[2])+"-"+pad(m[3])}return ""}
-function nextNo(){return [...Ctx.my.values()].reduce((m,c)=>Math.max(m,+c.no||0),0)}
+function nextNo(){return [...Ctx.my.values()].filter(c=>!isRec(c)).reduce((m,c)=>Math.max(m,+c.no||0),0)}
 function parseTemplate(rows){
   const R=n=>rows[n-1]||[];const out=[];const width=Math.max(...rows.map(r=>r?r.length:0));
   const ranges={income:[9,14],age:[14,18],marital:[18,22],property:[22,27],contact:[27,31],approach:[31,35]};
@@ -864,11 +1041,19 @@ async function doImport(){
 }
 
 /* ---------- export ---------- */
+function recRow(c,withOwner){
+  const o={};if(withOwner){const u=userById(c._owner);o["負責業務"]=userName(u);o["業務 Email"]=u&&u.email||""}
+  const sc=scoreOf(c);const opt=k=>isNum(c[k])?SCORE[k].opts[c[k]]:"";
+  Object.assign(o,{"編號":c.no||"","姓名":c.name||"","類型":c.rtype||"","增員階段":(STG[c.stage||"lead"]||STG.lead).t,"來源":c.source?c.source+" "+(SRC[c.source]||""):"","介紹人":c.referrer||"","目前服務的公司":c.company||"","現在的工作":c.job||"","居住區域":c.area||"","電話":c.phone||"","Instagram 名稱":c.ig||"","LINE":c.line||"","分數":sc.ready?sc.score:"","分級":gradeOf(c)});
+  Object.keys(REC_SCORE).forEach(k=>o[REC_SCORE[k].label]=opt(k));
+  Object.assign(o,{"交情":opt("contact"),"接近難易度":opt("approach"),"推力是什麼":arr(c.p_pushWhy).join("、"),"也是客戶":c.alsoClient?"是":"","下次聯絡日":c.nextDate||"","最近聯絡":c.lastContact||"","備註":c.note||"","跟進紀錄":arr(c.logs).slice().sort((a,b)=>a.d<b.d?-1:1).map(l=>`${l.d} ${l.t}${l.p&&l.p!=="contact"?`（${logStepLabel(l.p)}）`:""}：${l.x}`).join("\n")});
+  return o;
+}
 function exportClients(list,label,withOwner){
   if(!list.length){toast("沒有可匯出的資料");return}
   if(typeof XLSX==="undefined"){toast("Excel 元件尚未載入，請重新整理後再試");return}
   list=list.slice().sort((a,b)=>withOwner?(userName(userById(a._owner)).localeCompare(userName(userById(b._owner)),"zh-Hant")||(a.no||0)-(b.no||0)):(a.no||0)-(b.no||0));
-  const rows=list.map(c=>{const o={};if(withOwner){const u=userById(c._owner);o["負責業務"]=userName(u);o["業務 Email"]=u&&u.email||""}
+  const rows=Ctx.book==="rec"?list.map(c=>recRow(c,withOwner)):list.map(c=>{const o={};if(withOwner){const u=userById(c._owner);o["負責業務"]=userName(u);o["業務 Email"]=u&&u.email||""}
     const sc=scoreOf(c);FLAT.forEach(([h,k])=>{let v=c[k];
     if(k==="_carPlate")v=arr(c.cars).map(x=>x.plate||"").join("、");else if(k==="_carStart")v=arr(c.cars).map(x=>x.start||"").join("、");else if(k==="_carEnd")v=arr(c.cars).map(x=>x.end||"").join("、");else if(k==="_score")v=sc.ready?sc.score:"";else if(k==="_grade")v=sc.ready?gradeLabel(c)+(sc.final?"":"（暫定）"):"待評";
     else if(k==="_logs")v=arr(c.logs).slice().sort((a,b)=>a.d<b.d?-1:1).map(l=>`${l.d} ${l.t}${l.p&&l.p!=="contact"?`（${logStepLabel(l.p)}）`:""}：${l.x}`).join("\n");
@@ -881,7 +1066,7 @@ function exportClients(list,label,withOwner){
     o[h]=v==null?"":v});return o});
   const ws=XLSX.utils.json_to_sheet(rows);
   ws["!cols"]=Object.keys(rows[0]).map(h=>({wch:["備註","跟進紀錄","需求","既有保單","興趣嗜好","業務 Email"].includes(h)?30:12}));
-  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"客戶名單");
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,Ctx.book==="rec"?"增員名單":"客戶名單");
   const out=XLSX.write(wb,{type:"array",bookType:"xlsx"});
   const url=URL.createObjectURL(new Blob([out],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
   const a=document.createElement("a");a.href=url;a.download=`${label}_${today()}.xlsx`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);
@@ -905,3 +1090,5 @@ async function loadDemo(){
   toast("已載入 6 筆示範名單");
 }
 async function clearDemo(){for(const c of [...Ctx.my.values()].filter(c=>c.demo)){if(!(await removeClient(c.id)))break}toast("已清除示範資料")}
+
+setBook("client");
