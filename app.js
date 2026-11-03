@@ -465,7 +465,7 @@ function cardHtml(c){
     ${readOnly()?"":`<span class="card-del" data-del-client="${esc(c.id)}" role="button" aria-label="刪除 ${esc(c.name||"這筆資料")}" title="刪除">×</span>`}
     <div class="card-head">
       <div class="grade" data-g="${g}" data-temp="${isTemp(c)?1:0}">${gradeLabel(c)||"待評"}</div>
-      <div class="who"><div class="name">${esc(c.name||"（未命名）")}<span class="no">No.${esc(c.no||"-")}</span>${c.demo?'<span class="demo-flag">示範</span>':""}</div><div class="meta">${esc(metaLine(c))||"&nbsp;"}</div></div>
+      <div class="who"><div class="name">${esc(c.name||"（未命名）")}${isPeer(c)&&c.ig?`<span class="ig">${esc(c.ig)}</span>`:""}<span class="no">No.${esc(c.no||"-")}</span>${c.demo?'<span class="demo-flag">示範</span>':""}</div><div class="meta">${esc(metaLine(c))||"&nbsp;"}</div></div>
       <div class="score"><b class="num">${ready?score:"–"}</b><span>${scoreNote(c)}</span></div>
     </div>
     <div class="bar"><i style="width:${Math.max(0,Math.min(100,score/MAX_SCORE*100))}%"></i></div>
