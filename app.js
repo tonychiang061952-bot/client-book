@@ -506,6 +506,9 @@ async function recordTouch(id){
   if(await saveClient(c2))toast("已記錄 IG 互動");
 }
 document.addEventListener("click",e=>{
+  const logOpen=e.target.closest("[data-log-open]");
+  if(logOpen){openClient(logOpen.dataset.logOpen,"log");return}
+  if(e.target.closest("#actLogMore")){logShow+=30;renderRecLogs();return}
   const touch=e.target.closest("[data-touch]");
   if(touch){recordTouch(touch.dataset.touch);return}
   const del=e.target.closest("[data-del-client]");
@@ -568,9 +571,19 @@ function openStaleList(){
   $("#mNo").onclick=()=>$("#modalRoot").innerHTML="";
   $("#modalRoot .modal").onclick=e=>{if(e.target.classList.contains("modal"))$("#modalRoot").innerHTML=""};
 }
+let logShow=30;
+function renderRecLogs(){
+  const rows=[];items().forEach(c=>arr(c.logs).forEach((l,i)=>rows.push({c,l,i})));
+  rows.sort((a,b)=>(b.l.d||"").localeCompare(a.l.d||"")||b.i-a.i);
+  $("#actLogSub").textContent=rows.length?`最新的在最上面，共 ${rows.length} 筆。點一筆可以打開那個人的跟進紀錄。`:(readOnly()?"這位業務還沒有互動紀錄。":"按「今天互動過」或新增跟進紀錄後，會出現在這裡。");
+  $("#actLogs").innerHTML=rows.length?rows.slice(0,logShow).map(({c,l})=>`<li><button type="button" data-log-open="${esc(keyOf(c))}"><span class="an">${esc(c.name||"（未命名）")}<small>${esc(l.t||"")}${l.p&&l.p!=="contact"?"・"+esc(logStepLabel(l.p)):""}${l.x&&!l.x.startsWith(l.t||"\u0000")?"・"+esc(l.x):""}</small></span><span class="ad"><span class="num">${esc((l.d||"").replace(/-/g,"/"))}</span></span></button></li>`).join(""):`<li class="none">還沒有互動紀錄</li>`;
+  const more=$("#actLogMore");more.hidden=rows.length<=logShow;more.textContent=`再顯示 ${Math.min(30,rows.length-logShow)} 筆`;
+}
 function renderAct(){
   const all=items();
+  $("#actLogPanel").hidden=Ctx.book!=="rec";
   if(Ctx.book==="rec"){
+    renderRecLogs();
     setPanel("#actDue","待跟進","已逾期與未來 14 天內的預定聯絡");
     setPanel("#actCar",`超過 ${REC_REMIND} 天沒聯絡`,"沒有排下次聯絡日的人，分數高的排前面");
     setPanel("#actBday","還沒開始聯絡","加進名單後一筆紀錄都沒有");

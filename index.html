@@ -520,6 +520,7 @@ table.team .muted{color:var(--muted)}
         <div class="panel"><h3>近期壽星</h3><p class="sub">未來 30 天生日，適合關懷問候</p><ul class="alist" id="actBday"></ul></div>
         <div class="panel"><h3>高分未排程</h3><p class="sub">S／A 級但尚未設定下次聯絡日</p><ul class="alist" id="actIdle"></ul></div>
       </div>
+      <div class="panel" id="actLogPanel" style="margin-top:16px" hidden><h3>互動紀錄</h3><p class="sub" id="actLogSub"></p><ul class="alist" id="actLogs"></ul><button class="btn" type="button" id="actLogMore" style="margin-top:10px" hidden></button></div>
     </section>
 
     <section id="view-ana" hidden>
@@ -544,7 +545,7 @@ table.team .muted{color:var(--muted)}
 <div id="modalRoot"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script type="module" src="./app.js?v=20261103d"></script>
+<script type="module" src="./app.js?v=20261103e"></script>
 <script>
   // 若 15 秒後仍未載入（網路或瀏覽器封鎖），提示使用者
   setTimeout(function(){ if(!window.__booted){ var m=document.getElementById("bootMsg"); if(m) m.innerHTML="載入時間過長。請確認網路連線，或改用 Safari／Chrome 開啟此網址。<br><br><button class=\"btn\" onclick=\"location.reload()\">重新整理</button>"; } },15000);
