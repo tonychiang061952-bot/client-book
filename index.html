@@ -357,7 +357,6 @@ table.team .muted{color:var(--muted)}
 .touch{font-size:12px;padding:3px 10px;border:1px solid var(--line-2);border-radius:999px;color:var(--ink-2);background:var(--surface);white-space:nowrap;cursor:pointer}
 .touch:hover{border-color:var(--ink-2)}
 .touch.done{border-color:transparent;background:transparent;color:var(--muted);cursor:default}
-@media (min-width:901px){.summary.rec7{grid-template-columns:1.6fr repeat(6,1fr)}}
 .summary.rec7 .stat-btn{display:flex;flex-direction:column;justify-content:flex-start;align-items:flex-start;text-align:left}
 .bookbar{margin-top:20px;display:flex}
 .bookbar .seg button{padding:10px 22px;font-size:15px;font-weight:500}
@@ -545,7 +544,7 @@ table.team .muted{color:var(--muted)}
 <div id="modalRoot"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script type="module" src="./app.js?v=20261103c"></script>
+<script type="module" src="./app.js?v=20261103d"></script>
 <script>
   // 若 15 秒後仍未載入（網路或瀏覽器封鎖），提示使用者
   setTimeout(function(){ if(!window.__booted){ var m=document.getElementById("bootMsg"); if(m) m.innerHTML="載入時間過長。請確認網路連線，或改用 Safari／Chrome 開啟此網址。<br><br><button class=\"btn\" onclick=\"location.reload()\">重新整理</button>"; } },15000);

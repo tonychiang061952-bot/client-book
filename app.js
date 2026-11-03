@@ -432,7 +432,6 @@ function renderRecSummary(){
       <div class="dist">${seg("S")}${seg("A")}${seg("B")}${seg("C")}</div>
       <div class="dist-legend"><span><b style="color:var(--gS)">${g.S}</b>S</span><span><b style="color:var(--gA)">${g.A}</b>A</span><span><b style="color:var(--gB)">${g.B}</b>B</span><span><b style="color:var(--gC)">${g.C}</b>C</span>${g[""]?`<span><b>${g[""]}</b>待評</span>`:""}</div></div>
     <div class="stat"><div class="k">同業／白紙</div><div class="v num">${peer}<small>／</small>${n-peer}</div></div>
-    <div class="stat"><div class="k">7 天內待跟進</div><div class="v num">${due}<small>位</small></div></div>
     <div class="stat"><div class="k">已逾期未聯絡</div><div class="v num ${over?"alert":""}">${over}<small>位</small></div></div>
     <button type="button" class="stat stat-btn" data-act="stale"><div class="k">超過 ${REC_REMIND} 天沒聯絡</div><div class="v num ${stale?"alert":""}">${stale}<small>位</small></div>${stale?'<div class="more">查看名單 ›</div>':""}</button>
     <div class="stat"><div class="k">正在談的人</div><div class="v num">${talking}<small>位</small></div></div>
