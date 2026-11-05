@@ -1132,4 +1132,64 @@ async function loadDemo(){
 }
 async function clearDemo(){for(const c of [...Ctx.my.values()].filter(c=>c.demo)){if(!(await removeClient(c.id)))break}toast("已清除示範資料")}
 
+/* ---------- 招財貓：依經營狀況變表情，週末不計沒經營的天數 ---------- */
+const CATS={
+  deal:{g:"good",anim:"j-happy",title:"恭喜成交！",say:()=>"今天的財運都被你招來了，我的金幣舉不動了！"},
+  streak7:{g:"good",anim:"j-happy",title:"招財本人",say:x=>`連續 ${x.streak} 天都有經營，你就是招財本人。`},
+  busy:{g:"good",anim:"j-happy",title:"今天超拚",say:x=>`今天已經記了 ${x.n} 筆，太拚了，記得喝口水。`},
+  streak3:{g:"good",anim:"j-happy",title:"手感很好",say:x=>`連續 ${x.streak} 天了，手感不錯，繼續招財！`},
+  base:{g:"good",anim:"j-happy",title:"今天有經營",say:()=>"今天有經營，財氣慢慢進來了。"},
+  rest:{g:"rest",img:"base",anim:"",title:"週末愉快",say:()=>"週末不算天數，好好休息。想經營也歡迎。"},
+  todo:{g:"today",anim:"j-remind",title:"今天還沒開張喔",say:()=>"今天還沒有紀錄。先找一位客戶聊聊？"},
+  night:{g:"today",anim:"j-worry",title:"今天快過完了",say:x=>x.prev>=2?`都這個時間了，連續 ${x.prev} 天要斷了喔！`:"都這個時間了，睡前再聯絡一位吧。"},
+  d1:{g:"miss",anim:"j-remind",title:"我有看到喔",say:()=>"上個工作日一筆都沒有。今天不要再偷懶了。"},
+  d2:{g:"miss",anim:"j-worry",title:"有點擔心你",say:()=>"已經 2 天沒經營了。你的客戶還記得你嗎？"},
+  d3:{g:"miss",anim:"j-angry",title:"我要生氣了",say:x=>`${x.gap} 天沒動靜了。客戶是放著會自己成交嗎？`},
+  d7:{g:"miss",anim:"j-rage",title:"真的生氣了！",say:x=>`整整 ${x.gap} 天！再不動，客戶都要被別人接走了。`},
+  d14:{g:"miss",anim:"",title:"我躺平了",say:x=>`${x.gap} 天了，金幣都生鏽了。你想回來再叫我。`}
+};
+const CAT_COLOR={good:"var(--ok)",rest:"var(--ok)",today:"#2A6DA8",miss:"var(--warn)"};
+const CAT_HOT={d3:"#C96A22",d7:"var(--bad)",d14:"var(--muted)"};
+/* dates：有紀錄的日期（YYYY-MM-DD）；n：今天幾筆；deal：今天有成交；now：現在時間 */
+function catCalc(dates,n,deal,now){
+  const dayAt=i=>new Date(now.getFullYear(),now.getMonth(),now.getDate()-i);
+  const key=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  const weekend=d=>d.getDay()===0||d.getDay()===6;
+  // 連續天數：週末有記就加一天，沒記也不算斷
+  const run=from=>{let s=0;for(let i=from;i<800;i++){const d=dayAt(i);if(dates.has(key(d)))s++;else if(!weekend(d))break}return s};
+  if(n>0){const streak=run(0),x={n,streak};return{k:deal?"deal":streak>=7?"streak7":n>=5?"busy":streak>=3?"streak3":"base",x}}
+  const we=weekend(now),idle=()=>we?{k:"rest",x:{}}:{k:now.getHours()>=20?"night":"todo",x:{prev:run(1)}};
+  if(!dates.size)return idle();
+  // 沒經營的天數：從上一筆紀錄到昨天之間，有幾個工作日沒紀錄
+  let gap=0;for(let i=1;i<800;i++){const d=dayAt(i);if(dates.has(key(d)))break;if(!weekend(d))gap++}
+  if(gap===0)return idle();
+  return{k:gap===1?"d1":gap===2?"d2":gap<7?"d3":gap<14?"d7":"d14",x:{gap}};
+}
+function catNow(){
+  const dates=new Set(),t=today();let n=0,deal=false;
+  [...Ctx.my.values()].forEach(c=>arr(c.logs).forEach(l=>{if(!l.d)return;dates.add(l.d);if(l.d===t){n++;if(l.p==="deal"||l.p==="join")deal=true}}));
+  return catCalc(dates,n,deal,new Date());
+}
+let catLast="";
+function catHidden(k){try{return localStorage.getItem("clientbook.catHide")===today()+"|"+k}catch(e){return false}}
+function catRender(){
+  const wrap=$("#jiaWrap");if(!wrap)return;
+  const show=Ctx.mode==="mine"&&Ctx.myReady&&!$("#drawer").classList.contains("on")&&!$("#screen-app").hidden;
+  wrap.hidden=!show;if(!show)return;
+  const st=catNow(),s=CATS[st.k];catLast=st.k;
+  wrap.style.setProperty("--jc",CAT_HOT[st.k]||CAT_COLOR[s.g]);
+  $("#jia").innerHTML=`<img class="${s.anim}" src="./cat/${s.img||st.k}.jpg?v=1" alt="">`;
+  $("#jia").setAttribute("aria-label",`招財貓：${s.title}。打開行動清單`);
+  const stale=[...Ctx.my.values()].filter(c=>inBook(c)&&isStale(c)).length,say=$("#jiaSay");
+  say.hidden=catHidden(st.k);
+  say.innerHTML=`<button type="button" class="x" id="jiaX" aria-label="收起這段話">×</button><b>${s.title}</b>${esc(s.say(st.x))}${s.g==="today"||s.g==="miss"?`<br><button type="button" class="go" id="jiaGo">看今天該聯絡誰${stale?`（${stale} 位超過 14 天）`:""}</button>`:""}`;
+}
+function catGoActions(){if(Ctx.mode!=="mine")return;S.view="act";rememberUI();renderView();$("#view-act").scrollIntoView({block:"start",behavior:"smooth"})}
+const _catRA=renderAll;renderAll=function(){_catRA();catRender()};
+new MutationObserver(catRender).observe($("#drawer"),{attributes:true,attributeFilter:["class"]});
+document.addEventListener("click",e=>{
+  if(e.target.closest("#jiaX")){try{localStorage.setItem("clientbook.catHide",today()+"|"+catLast)}catch(err){}$("#jiaSay").hidden=true;return}
+  if(e.target.closest("#jiaGo")||e.target.closest("#jia"))catGoActions();
+});
+
 setBook("client");
