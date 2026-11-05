@@ -381,6 +381,20 @@ table.team .muted{color:var(--muted)}
 @keyframes jshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-2px) rotate(-2deg)}75%{transform:translateX(2px) rotate(2deg)}}
 @media (prefers-reduced-motion:reduce){.j-happy,.j-remind,.j-worry,.j-angry,.j-rage{animation:none}}
 @media (max-width:560px){#jia{width:68px;height:68px}}
+.team-tabs{margin-top:18px}.team-tabs button{padding:9px 16px;font-size:14px;font-weight:500}
+#teamView.ops-on>*:not(.keep){display:none!important}
+.ops-sum{grid-template-columns:repeat(6,minmax(0,1fr));margin-top:16px}
+@media (max-width:900px){.ops-sum{grid-template-columns:repeat(2,minmax(0,1fr))}.ops-sum .stat:first-child{grid-column:auto}}
+.ops-h{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:10px 18px;margin:26px 0 10px}.ops-h h2{font-family:var(--f-display);font-size:19px;margin:0}.ops-h p{margin:2px 0 0;font-size:13px;color:var(--muted)}
+table.ops{min-width:820px}table.ops tbody tr{cursor:pointer}table.ops tbody tr:hover td{background:var(--surface-2)}
+.ocat{flex:none;display:block;width:84px;height:84px;border-radius:50%;overflow:hidden;background:#fff;border:3px solid var(--jc,var(--gold))}.ocat img{display:block;width:100%;height:100%}
+.stt{display:inline-block;font-size:12.5px;padding:2px 9px;border-radius:999px;white-space:nowrap;font-weight:500}.stt.ok{background:var(--ok-soft);color:var(--ok)}.stt.warn{background:var(--warn-soft);color:var(--warn)}.stt.bad{background:var(--bad-soft);color:var(--bad)}.stt.info{background:var(--navy-soft);color:var(--navy)}
+.ops-note{font-size:12.5px;color:var(--muted);margin:8px 0 0}
+#view-ops{margin-top:18px}.ops-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}.ops-cat{display:flex;gap:14px;align-items:center}.ops-cat b{font-family:var(--f-display);font-size:18px}.ops-cat p{margin:2px 0 6px;color:var(--ink-2);font-size:14px}
+.ops-5{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.ops-5 span{display:block;font-size:12.5px;color:var(--muted)}.ops-5 b{font-family:var(--f-num);font-size:30px;font-weight:600;line-height:1.1}.ops-5 small{font-size:12px;color:var(--muted);margin-left:2px}
+#view-ops .tscroll{overflow-x:auto}table.ops-m{min-width:0}table.ops-m th,table.ops-m td{padding-left:8px;padding-right:8px}table.ops-m tr.me td{background:var(--gold-soft)}
+.ops-log{display:grid;grid-template-columns:48px 72px auto minmax(0,1fr);gap:8px;align-items:center;padding:8px 2px;font-size:13.5px}.ops-log .num{color:var(--muted)}.ops-log .x{color:var(--ink-2);min-width:0}
+@media (max-width:760px){.ops-top{grid-template-columns:minmax(0,1fr)}.ops-log{grid-template-columns:44px minmax(0,1fr) auto}.ops-log .x{grid-column:1/-1}}
 .bookbar{margin-top:20px;display:flex}
 .bookbar .seg button{padding:10px 22px;font-size:15px;font-weight:500}
 .add-why{display:flex;gap:8px;margin-top:8px}.add-why .inp{flex:1;min-width:0}
@@ -480,6 +494,8 @@ table.team .muted{color:var(--muted)}
   <div class="bookbar"><div class="seg" id="bookSeg" role="group" aria-label="切換名單"><button type="button" data-book="client" aria-pressed="true">客戶名單</button><button type="button" data-book="rec" aria-pressed="false">增員名單</button></div></div>
   <!-- 管理員：團隊後台 -->
   <div id="teamView" hidden>
+    <div class="seg keep team-tabs" id="teamTabs" role="group" aria-label="團隊後台分頁"><button type="button" data-tt="org">成員與組織</button><button type="button" data-tt="ops">全部業務經營現況</button></div>
+    <div id="teamOps" class="keep" hidden></div>
     <section class="summary" id="teamSummary" aria-label="團隊摘要"></section>
     <section class="pend-panel" id="pendPanel" hidden>
       <h3>待開通申請</h3><p class="sub">確認是你的團隊成員後，選好直屬主管再開通。開通後對方即可建立自己的名單，他的上線主管也看得到。</p>
@@ -516,6 +532,7 @@ table.team .muted{color:var(--muted)}
       <button class="tab" role="tab" aria-selected="true" data-view="list">名單總覽</button>
       <button class="tab" role="tab" aria-selected="false" data-view="act">行動清單<span class="cnt" id="actCnt">0</span></button>
       <button class="tab" role="tab" aria-selected="false" data-view="ana">名單分析</button>
+      <button class="tab" role="tab" aria-selected="false" data-view="ops" id="opsTab" hidden>經營現況</button>
     </nav>
 
     <section id="view-list">
@@ -546,6 +563,7 @@ table.team .muted{color:var(--muted)}
       <div class="panel" id="actLogPanel" style="margin-top:16px" hidden><h3>互動紀錄</h3><p class="sub" id="actLogSub"></p><ul class="alist" id="actLogs"></ul><button class="btn" type="button" id="actLogMore" style="margin-top:10px" hidden></button></div>
     </section>
 
+    <section id="view-ops" hidden></section>
     <section id="view-ana" hidden>
       <div class="cols" style="margin-top:18px">
         <div class="panel"><h3>來源 × 分級</h3><p class="sub">哪一種人脈產出高品質名單</p><div class="legend"><span style="--c:var(--gS)">S</span><span style="--c:var(--gA)">A</span><span style="--c:var(--gB)">B</span><span style="--c:var(--gC)">C</span></div><div id="anaSource"></div></div>
@@ -569,7 +587,7 @@ table.team .muted{color:var(--muted)}
 <div id="jiaWrap" hidden><div id="jiaSay" role="status"></div><button type="button" id="jia"></button></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script type="module" src="./app.js?v=20261105c"></script>
+<script type="module" src="./app.js?v=20261105d"></script>
 <script>
   // 若 15 秒後仍未載入（網路或瀏覽器封鎖），提示使用者
   setTimeout(function(){ if(!window.__booted){ var m=document.getElementById("bootMsg"); if(m) m.innerHTML="載入時間過長。請確認網路連線，或改用 Safari／Chrome 開啟此網址。<br><br><button class=\"btn\" onclick=\"location.reload()\">重新整理</button>"; } },15000);
