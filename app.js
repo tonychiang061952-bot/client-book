@@ -1176,12 +1176,12 @@ let catLast="";
 function catHidden(k){try{return localStorage.getItem("clientbook.catHide")===today()+"|"+k}catch(e){return false}}
 function catRender(){
   const wrap=$("#jiaWrap");if(!wrap)return;
-  const show=Ctx.mode==="mine"&&Ctx.myReady&&!$("#drawer").classList.contains("on")&&!$("#screen-app").hidden;
+  const show=Ctx.mode==="mine"&&S.view!=="ops"&&Ctx.myReady&&!$("#drawer").classList.contains("on")&&!$("#screen-app").hidden;
   wrap.hidden=!show;if(!show)return;
   const st=catNow(),s=CATS[st.k];catLast=st.k;
   wrap.style.setProperty("--jc",CAT_HOT[st.k]||CAT_COLOR[s.g]);
   $("#jia").innerHTML=`<img class="${s.anim}" src="./cat/${s.img||st.k}.jpg?v=3" alt="">`;
-  $("#jia").setAttribute("aria-label",`招財貓：${s.title}。打開行動清單`);
+  $("#jia").setAttribute("aria-label",`招財貓：${s.title}。打開我的經營現況`);
   const stale=[...Ctx.my.values()].filter(c=>inBook(c)&&isStale(c)).length,say=$("#jiaSay");
   say.hidden=catHidden(st.k);
   say.innerHTML=`<button type="button" class="x" id="jiaX" aria-label="收起這段話">×</button><b>${s.title}</b>${esc(s.say(st.x))}${s.g==="today"||s.g==="miss"?`<br><button type="button" class="go" id="jiaGo">看今天該聯絡誰${stale?`（${stale} 位超過 14 天）`:""}</button>`:""}`;
@@ -1191,14 +1191,15 @@ const _catRA=renderAll;renderAll=function(){_catRA();catRender()};
 new MutationObserver(catRender).observe($("#drawer"),{attributes:true,attributeFilter:["class"]});
 document.addEventListener("click",e=>{
   if(e.target.closest("#jiaX")){try{localStorage.setItem("clientbook.catHide",today()+"|"+catLast)}catch(err){}$("#jiaSay").hidden=true;return}
-  if(e.target.closest("#jiaGo")||e.target.closest("#jia"))catGoActions();
+  if(e.target.closest("#jiaGo"))catGoActions();
+  else if(e.target.closest("#jia")&&Ctx.mode==="mine"){S.view="ops";renderView();window.scrollTo(0,0)}
 });
 
 /* ---------- 經營現況：主管看業務的實際工作量（目標與獎章之後再加） ---------- */
 const OPS_ST=[["list","接觸","位"],["appt","約訪","位"],["meet","面談","場"],["prop","建議書","份"],["deal","成交","件"]];
 function opsWeekStart(off){const d=new Date(),wd=(d.getDay()+6)%7;return ymd(new Date(d.getFullYear(),d.getMonth(),d.getDate()-wd-off*7))}
 function opsStats(u){
-  const mine=[...Ctx.team.values()].filter(c=>c._owner===u.id);
+  const mine=u.id===Ctx.user.uid?[...Ctx.my.values()].filter(c=>!c.demo):[...Ctx.team.values()].filter(c=>c._owner===u.id);
   const all=mine.flatMap(c=>arr(c.logs).map(l=>({...l,who:c.name,cid:c.id,rec:isRec(c)})));
   const t=today(),dates=new Set(all.map(l=>l.d).filter(Boolean)),todayL=all.filter(l=>l.d===t);
   const cat=catCalc(dates,todayL.length,todayL.some(l=>l.p==="deal"||l.p==="join"),new Date());
@@ -1206,9 +1207,10 @@ function opsStats(u){
   const cl=all.filter(l=>!l.rec);
   const bucket=(from,to)=>{const L=cl.filter(l=>(l.d||"")>=from&&(!to||l.d<to)),n=k=>L.filter(l=>l.p===k).length;return{list:new Set(L.map(l=>l.cid)).size,appt:n("appt"),meet:n("meet"),prop:n("prop"),deal:n("deal")}};
   const weeks=[0,1,2,3].map(i=>bucket(opsWeekStart(i),i?opsWeekStart(i-1):null));
+  const d0=new Date(),month=bucket(ymd(new Date(d0.getFullYear(),d0.getMonth(),1)),null);
   const gap=cat.x.gap||0,last=[...dates].sort().pop()||"";
   const need=gap*100+(CATS[cat.k].g==="today"?20:0)-weeks[0].list;
-  return{u,cat,weeks,last,gap,need,logs:all.sort((a,b)=>(b.d||"").localeCompare(a.d||""))};
+  return{u,cat,weeks,month,last,gap,need,logs:all.sort((a,b)=>(b.d||"").localeCompare(a.d||""))};
 }
 function opsLabel(s){const c=s.cat;if(s.gap)return{t:`中斷 ${s.gap} 天`,cl:s.gap>=3?"bad":"warn"};if(CATS[c.k].g==="today")return{t:c.x.prev?`連續 ${c.x.prev} 天，今天還沒`:"今天還沒",cl:"info"};if(c.k==="rest")return{t:"週末休息",cl:"ok"};return{t:`連續 ${c.x.streak} 天`,cl:"ok"}}
 let opsFilter="all",teamTab="org";
@@ -1224,15 +1226,17 @@ function renderOpsTeam(){
   <div class="table-wrap"><table class="team ops"><thead><tr><th>業務</th><th>連續／中斷</th>${OPS_ST.map(x=>`<th class="r">本週${x[1]}</th>`).join("")}<th>最近紀錄</th><th></th></tr></thead><tbody>${shown.map(s=>{const l=opsLabel(s);return `<tr data-ops="${esc(s.u.id)}"><td><div class="tname"><span>${esc(userName(s.u))}${s.u.id===Ctx.user.uid?' <em class="you">你</em>':""}</span></div></td><td><span class="stt ${l.cl}">${esc(l.t)}</span></td>${OPS_ST.map(x=>`<td class="r num">${s.weeks[0][x[0]]}</td>`).join("")}<td>${s.last?esc(s.last.slice(5).replace("-","/")):"—"}</td><td class="r nowrap"><button class="btn sm" type="button" data-ops-go="${esc(s.u.id)}">經營現況</button></td></tr>`}).join("")||'<tr><td colspan="9" class="empty-row">沒有符合的人</td></tr>'}</tbody></table></div><p class="ops-note">週目標和獎章等每位業務訂好月目標後加入。工作量只算客戶名單；連續和中斷天數客戶、增員都算，週末不計。</p>`;
 }
 function renderOpsPerson(){
-  const box=$("#view-ops");if(!box||S.view!=="ops"||Ctx.mode!=="advisor")return;
-  const u=userById(Ctx.viewUid);if(!u)return;const s=opsStats(u),c=CATS[s.cat.k],l=opsLabel(s),col=CAT_HOT[s.cat.k]||CAT_COLOR[c.g];
+  const box=$("#view-ops");if(!box||S.view!=="ops"||Ctx.mode==="team")return;
+  const own=Ctx.mode==="mine",u=own?{id:Ctx.user.uid}:userById(Ctx.viewUid);if(!u)return;const s=opsStats(u),c=CATS[s.cat.k],l=opsLabel(s),col=CAT_HOT[s.cat.k]||CAT_COLOR[c.g];
   box.innerHTML=`<div class="ops-top"><div class="panel ops-cat"><span class="ocat" style="--jc:${col}"><img src="./cat/${c.img||s.cat.k}.jpg?v=3" alt=""></span><div><b>${esc(c.title)}</b><p>${esc(c.say(s.cat.x))}</p><span class="stt ${l.cl}">${esc(l.t)}</span></div></div>
-  <div class="panel"><h3>本週工作量</h3><p class="sub">從週一算起，自動從跟進紀錄計算</p><div class="ops-5">${OPS_ST.map(([k,n,un])=>`<div><span>${n}</span><b class="num">${s.weeks[0][k]}</b><small>${un}</small></div>`).join("")}</div></div></div>
+  <div class="panel"><h3>本月工作量</h3><p class="sub">從每月 1 號算起，自動從跟進紀錄計算</p><div class="ops-5">${OPS_ST.map(([k,n,un])=>`<div><span>${n}</span><b class="num">${s.month[k]}</b><small>${un}</small></div>`).join("")}</div></div></div>
   <div class="panel" style="margin-top:14px"><h3>最近 4 週</h3><p class="sub">工作量只算客戶名單</p><div class="tscroll"><table class="team ops-m"><thead><tr><th>週次</th>${OPS_ST.map(x=>`<th class="r">${x[1]}</th>`).join("")}</tr></thead><tbody>${s.weeks.map((x,i)=>`<tr class="${i?"":"me"}"><td>${i?i+" 週前":"本週"}</td>${OPS_ST.map(y=>`<td class="r num">${x[y[0]]}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div>
-  <div class="panel" style="margin-top:14px"><h3>最近的經營紀錄</h3><p class="sub">客戶和增員的跟進紀錄，只能看不能改</p><ul class="alist">${s.logs.slice(0,8).map(g=>`<li class="ops-log"><span class="num">${esc((g.d||"").slice(5).replace("-","/"))}</span><b>${esc(g.who||"")}</b><span class="pill">${g.rec?"增員・":""}${esc(g.t||"")}</span><span class="x">${esc(g.x||"")}</span></li>`).join("")||'<li class="none">還沒有紀錄</li>'}</ul></div>`;
+  <div class="panel" style="margin-top:14px"><h3>最近的經營紀錄</h3><p class="sub">客戶和增員的跟進紀錄${own?"":"，只能看不能改"}</p><ul class="alist">${s.logs.slice(0,8).map(g=>`<li class="ops-log"><span class="num">${esc((g.d||"").slice(5).replace("-","/"))}</span><b>${esc(g.who||"")}</b><span class="pill">${g.rec?"增員・":""}${esc(g.t||"")}</span><span class="x">${esc(g.x||"")}</span></li>`).join("")||'<li class="none">還沒有紀錄</li>'}</ul></div>`;
 }
 $("#opsTab").addEventListener("click",()=>{S.view="ops";renderView();window.scrollTo(0,0)});
-const _opsRV=renderView;renderView=function(){const on=S.view==="ops"&&Ctx.mode==="advisor";if(S.view==="ops"&&!on)S.view="list";_opsRV();$("#view-ops").hidden=!on;$("#summary").hidden=on;$("#opsTab").hidden=Ctx.mode!=="advisor";if(on)renderOpsPerson()};
+if(S.view==="ops")S.view="list";
+const _opsRV=renderView;renderView=function(){const on=S.view==="ops"&&Ctx.mode!=="team";if(S.view==="ops"&&!on)S.view="list";_opsRV();$("#view-ops").hidden=!on;$("#summary").hidden=on;$("#opsTab").hidden=Ctx.mode!=="advisor"&&!on;if(on)renderOpsPerson();catRender()};
+const _opsSM=setMode;setMode=function(m,v){if(S.view==="ops")S.view="list";_opsSM(m,v)};
 const _opsRT=renderTeam;renderTeam=function(){_opsRT();$("#teamView").classList.toggle("ops-on",teamTab==="ops");[...$("#teamTabs").children].forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.tt===teamTab)));$("#teamOps").hidden=teamTab!=="ops";if(teamTab==="ops")renderOpsTeam()};
 document.addEventListener("click",e=>{
   const tt=e.target.closest("[data-tt]");if(tt){teamTab=tt.dataset.tt;renderTeam();return}
