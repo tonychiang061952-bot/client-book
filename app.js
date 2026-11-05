@@ -1135,6 +1135,8 @@ async function clearDemo(){for(const c of [...Ctx.my.values()].filter(c=>c.demo)
 /* ---------- 招財貓：依經營狀況變表情，週末不計沒經營的天數 ---------- */
 const CATS={
   deal:{g:"good",anim:"j-happy",title:"恭喜成交！",say:()=>"今天的財運都被你招來了，我的金幣舉不動了！"},
+  streak30:{g:"good",anim:"",title:"有神快拜",say:x=>`連續 ${x.streak} 天！有神快拜，小貓在此跪拜。`},
+  streak15:{g:"good",anim:"j-happy",title:"太狠了",say:x=>`連續 ${x.streak} 天！這個毅力，我的金幣都要發光了。`},
   streak7:{g:"good",anim:"j-happy",title:"招財本人",say:x=>`連續 ${x.streak} 天都有經營，你就是招財本人。`},
   busy:{g:"good",anim:"j-happy",title:"今天超拚",say:x=>`今天已經記了 ${x.n} 筆，太拚了，記得喝口水。`},
   streak3:{g:"good",anim:"j-happy",title:"手感很好",say:x=>`連續 ${x.streak} 天了，手感不錯，繼續招財！`},
@@ -1157,7 +1159,7 @@ function catCalc(dates,n,deal,now){
   const weekend=d=>d.getDay()===0||d.getDay()===6;
   // 連續天數：週末有記就加一天，沒記也不算斷
   const run=from=>{let s=0;for(let i=from;i<800;i++){const d=dayAt(i);if(dates.has(key(d)))s++;else if(!weekend(d))break}return s};
-  if(n>0){const streak=run(0),x={n,streak};return{k:deal?"deal":streak>=7?"streak7":n>=5?"busy":streak>=3?"streak3":"base",x}}
+  if(n>0){const streak=run(0),x={n,streak};return{k:deal?"deal":streak>=30?"streak30":streak>=15?"streak15":streak>=7?"streak7":n>=5?"busy":streak>=3?"streak3":"base",x}}
   const we=weekend(now),idle=()=>we?{k:"rest",x:{}}:{k:now.getHours()>=20?"night":"todo",x:{prev:run(1)}};
   if(!dates.size)return idle();
   // 沒經營的天數：從上一筆紀錄到昨天之間，有幾個工作日沒紀錄
@@ -1178,7 +1180,7 @@ function catRender(){
   wrap.hidden=!show;if(!show)return;
   const st=catNow(),s=CATS[st.k];catLast=st.k;
   wrap.style.setProperty("--jc",CAT_HOT[st.k]||CAT_COLOR[s.g]);
-  $("#jia").innerHTML=`<img class="${s.anim}" src="./cat/${s.img||st.k}.jpg?v=1" alt="">`;
+  $("#jia").innerHTML=`<img class="${s.anim}" src="./cat/${s.img||st.k}.jpg?v=2" alt="">`;
   $("#jia").setAttribute("aria-label",`招財貓：${s.title}。打開行動清單`);
   const stale=[...Ctx.my.values()].filter(c=>inBook(c)&&isStale(c)).length,say=$("#jiaSay");
   say.hidden=catHidden(st.k);

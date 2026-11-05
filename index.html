@@ -365,7 +365,7 @@ table.team .muted{color:var(--muted)}
 #jiaWrap{position:fixed;right:max(18px,env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:35;display:flex;flex-direction:column;align-items:flex-end;gap:8px;pointer-events:none}
 #jia{pointer-events:auto;display:grid;place-items:center;width:78px;height:78px;padding:0;border-radius:50%;background:#FFFFFF;overflow:hidden;border:3px solid var(--jc,var(--gold));box-shadow:0 8px 22px -6px rgba(21,28,44,.45);cursor:pointer;transition:transform .12s}
 #jia:hover{transform:scale(1.06)}#jia:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
-#jia img{width:66px;height:66px;display:block}
+#jia img{width:100%;height:100%;display:block}
 #jiaSay{pointer-events:auto;position:relative;width:min(290px,calc(100vw - 36px));background:var(--surface);color:var(--ink);border:2px solid var(--jc,var(--gold));border-radius:14px;padding:11px 32px 11px 13px;font-size:14.5px;line-height:1.55;box-shadow:0 10px 26px -10px rgba(21,28,44,.4)}
 #jiaSay::after{content:"";position:absolute;right:30px;bottom:-8px;width:13px;height:13px;background:var(--surface);border-right:2px solid var(--jc,var(--gold));border-bottom:2px solid var(--jc,var(--gold));transform:rotate(45deg)}
 #jiaSay b{display:block;font-size:12.5px;font-weight:700;color:var(--jc,var(--gold));margin-bottom:1px}
@@ -380,7 +380,7 @@ table.team .muted{color:var(--muted)}
 @keyframes jtilt{0%,60%,100%{transform:rotate(0)}70%{transform:rotate(-7deg)}85%{transform:rotate(6deg)}}
 @keyframes jshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-2px) rotate(-2deg)}75%{transform:translateX(2px) rotate(2deg)}}
 @media (prefers-reduced-motion:reduce){.j-happy,.j-remind,.j-worry,.j-angry,.j-rage{animation:none}}
-@media (max-width:560px){#jia{width:68px;height:68px}#jia img{width:58px;height:58px}}
+@media (max-width:560px){#jia{width:68px;height:68px}}
 .bookbar{margin-top:20px;display:flex}
 .bookbar .seg button{padding:10px 22px;font-size:15px;font-weight:500}
 .add-why{display:flex;gap:8px;margin-top:8px}.add-why .inp{flex:1;min-width:0}
@@ -569,7 +569,7 @@ table.team .muted{color:var(--muted)}
 <div id="jiaWrap" hidden><div id="jiaSay" role="status"></div><button type="button" id="jia"></button></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script type="module" src="./app.js?v=20261105"></script>
+<script type="module" src="./app.js?v=20261105b"></script>
 <script>
   // 若 15 秒後仍未載入（網路或瀏覽器封鎖），提示使用者
   setTimeout(function(){ if(!window.__booted){ var m=document.getElementById("bootMsg"); if(m) m.innerHTML="載入時間過長。請確認網路連線，或改用 Safari／Chrome 開啟此網址。<br><br><button class=\"btn\" onclick=\"location.reload()\">重新整理</button>"; } },15000);
