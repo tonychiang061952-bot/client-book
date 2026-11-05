@@ -1180,7 +1180,7 @@ function catRender(){
   wrap.hidden=!show;if(!show)return;
   const st=catNow(),s=CATS[st.k];catLast=st.k;
   wrap.style.setProperty("--jc",CAT_HOT[st.k]||CAT_COLOR[s.g]);
-  $("#jia").innerHTML=`<img class="${s.anim}" src="./cat/${s.img||st.k}.jpg?v=2" alt="">`;
+  $("#jia").innerHTML=`<img class="${s.anim}" src="./cat/${s.img||st.k}.jpg?v=3" alt="">`;
   $("#jia").setAttribute("aria-label",`招財貓：${s.title}。打開行動清單`);
   const stale=[...Ctx.my.values()].filter(c=>inBook(c)&&isStale(c)).length,say=$("#jiaSay");
   say.hidden=catHidden(st.k);
