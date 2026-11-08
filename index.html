@@ -475,7 +475,7 @@ table.team .muted{color:var(--muted)}
 .gm .g-chk.g-n{color:var(--muted)}
 .gm .g-grp{font-size:12px;color:var(--muted);margin:13px 0 0;padding-bottom:4px;border-bottom:1px solid var(--line)}
 .gm .g-grp:first-of-type{margin-top:0}
-.gm .g-stamps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:4px 0 13px;text-align:center;font-size:12px;color:var(--muted)}
+.gm .g-stamps{display:grid;grid-template-columns:repeat(auto-fit,minmax(56px,1fr));gap:6px;margin:4px 0 13px;text-align:center;font-size:12px;color:var(--muted)}
 .gm .g-stamps div{display:grid;justify-items:center;gap:5px;min-width:0}
 .gm .g-stamps .g-seal{width:50px;height:50px;font-size:13px}
 .gm .g-reward{background:var(--gold-soft);border-radius:8px;padding:11px 13px;font-size:13.5px}
@@ -736,7 +736,7 @@ table.ops{min-width:820px}table.ops tbody tr{cursor:pointer}table.ops tbody tr:h
 <div id="jiaWrap" hidden><div id="jiaSay" role="status"></div><button type="button" id="jia"></button></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script type="module" src="./app.js?v=20261105f"></script>
+<script type="module" src="./app.js?v=20261108a"></script>
 <script>
   // 若 15 秒後仍未載入（網路或瀏覽器封鎖），提示使用者
   setTimeout(function(){ if(!window.__booted){ var m=document.getElementById("bootMsg"); if(m) m.innerHTML="載入時間過長。請確認網路連線，或改用 Safari／Chrome 開啟此網址。<br><br><button class=\"btn\" onclick=\"location.reload()\">重新整理</button>"; } },15000);

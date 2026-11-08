@@ -1212,18 +1212,22 @@ function gmCreated(c){const d=new Date(c.createdAt);return c.createdAt&&!isNaN(d
 // 當月分四週：1–7、8–14、15–21、22–月底。接觸：新增一位或寫一筆紀錄，同一週同一位只算一次。工作量只算客戶名單。
 function gmData(u){
   const now=new Date(),y=now.getFullYear(),m=now.getMonth(),last=new Date(y,m+1,0).getDate(),day=now.getDate();
-  const from=ymd(new Date(y,m,1)),to=ymd(new Date(y,m,last)),inM=d=>d&&d>=from&&d<=to,wkOf=n=>n<=7?0:n<=14?1:n<=21?2:3;
-  const ranges=[[1,7],[8,14],[15,21],[22,last]],ev=[];
+  const from=ymd(new Date(y,m,1)),to=ymd(new Date(y,m,last)),inM=d=>d&&d>=from&&d<=to,ev=[];
+  // 週一到週日的日曆週，月初月底不滿一週的部分照實際天數
+  const ranges=[];for(let a=1;a<=last;){const wd=(new Date(y,m,a).getDay()+6)%7,b=Math.min(last,a+6-wd);ranges.push([a,b]);a=b+1}
+  const wkOf=n=>ranges.findIndex(([a,b])=>n>=a&&n<=b);
   gmClients(u).filter(c=>!isRec(c)).forEach(c=>{const cd=gmCreated(c);if(inM(cd))ev.push({d:cd,k:"new",cid:c.id,who:c.name,x:"新增名單"});arr(c.logs).forEach(l=>{if(inM(l.d))ev.push({d:l.d,k:l.p||"contact",cid:c.id,who:c.name,x:l.x||"",log:true})})});
   ev.sort((a,b)=>a.d.localeCompare(b.d));
   const daily={};GM_STG.forEach(([k])=>daily[k]=Array(last).fill(0));
-  const seen=new Set(),fams=[0,1,2,3].map(()=>new Set()),famM=new Set();
+  const seen=new Set(),fams=ranges.map(()=>new Set()),famM=new Set();
   ev.forEach(e=>{const n=+e.d.slice(8),w=wkOf(n);e.w=w;const key=w+"|"+e.cid;if(!seen.has(key)){seen.add(key);daily.list[n-1]++;e.first=true}if(daily[e.k]&&e.k!=="list")daily[e.k][n-1]++;if(e.log){fams[w].add(e.cid);famM.add(e.cid)}});
   const weekly={},done={};GM_STG.forEach(([k])=>{weekly[k]=ranges.map(([a,b])=>gmSum(daily[k].slice(a-1,b)));done[k]=gmSum(daily[k])});
   return{y,m,last,day,now:wkOf(day),ranges,ev,daily,weekly,done,fam:fams.map(s=>s.size),famM:famM.size};
 }
 // 已過的週用月目標平均；本週與之後，把本週開始前還沒做完的量平均分配
-function gmWT(t,D,k){const before=gmSum(D.weekly[k].slice(0,D.now)),left=4-D.now,past=Math.ceil(t[k]/4),cur=Math.ceil(Math.max(0,t[k]-before)/left);return[0,1,2,3].map(i=>i<D.now?past:cur)}
+// 已過的週照天數分月目標；本週和之後，把本週開始前還沒做完的量照剩下天數分
+function gmWT(t,D,k){const days=r=>r[1]-r[0]+1,before=gmSum(D.weekly[k].slice(0,D.now)),left=D.last-D.ranges[D.now][0]+1,rest=Math.max(0,t[k]-before);return D.ranges.map((r,i)=>Math.ceil(i<D.now?t[k]*days(r)/D.last:rest*days(r)/left))}
+const gmWkLabel=(D,i)=>{const[a,b]=D.ranges[i];return `${D.m+1}/${a}${a===b?"":"–"+b}`};
 function gmHit(t,D,i){return i<=D.now&&GM_COUNT3.every(k=>t[k]>0&&D.weekly[k][i]>=gmWT(t,D,k)[i])}
 function gmViewGoal(g,ro){
   const row=([k,n])=>`<div class="g-stage"><b>${n}</b><div class="g-tk"><div class="g-tgt" id="tg-${k}"></div><div class="g-got" id="gt-${k}"></div></div><div class="g-cnt" id="ct-${k}"></div></div>`;
@@ -1238,7 +1242,7 @@ function gmUpdateGoal(g,D){
   $("#g-inc").textContent=gmMoney(inc);$("#g-deal").textContent=t.deal;$("#g-earn").textContent=gmMoney(est)+" / "+gmMoney(inc);$("#g-earnb").style.width=(inc?Math.min(100,est/inc*100):0)+"%";
   GM_STG.forEach(([k,,u])=>{$("#tg-"+k).style.width="100%";$("#gt-"+k).style.width=(t[k]?Math.min(1,D.done[k]/t[k])*100:0)+"%";$("#ct-"+k).innerHTML=`<b>${D.done[k]}</b> / ${t[k]} ${u}`});
   for(const k in GM_RT){const a=GM_RT[k],base=D.done[a[1]];$("#o-"+k).textContent=g.r[k]+"%";$("#m-"+k).textContent=base?"實際 "+Math.round(D.done[a[2]]/base*100)+"%":"實際 —";$("#x-"+k).textContent=gmFmt(raw[a[2]])+" ÷ "+g.r[k]+"% ＝ "+gmFmt(raw[a[1]])+"，取 "+t[a[1]]}
-  $("#w-sub").textContent=`本月第 ${D.now+1} 週。把本週開始前還沒做完的量，平均分到剩下的 ${4-D.now} 週，和「我的工作量」的虛線是同一組數字。`;
+  $("#w-sub").textContent=`本月第 ${D.now+1} 週（${gmWkLabel(D,D.now)}，週一到週日）。把本週開始前還沒做完的量，照剩下的天數分到剩下 ${D.ranges.length-D.now} 週，和「我的工作量」的虛線是同一組數字。`;
   $("#w-list").innerHTML=GM_STG.map(([k,n,u])=>{const tg=gmWT(t,D,k)[D.now],d=D.weekly[k][D.now],gap=Math.max(0,tg-d);return `<div class="g-wk"><span>${n}</span><b>${d} / ${tg} ${u}</b><small>${gap?`本週還差 ${gap} ${u}`:"本週已碰到目標"}</small></div>`}).join("")+'<button type="button" class="g-mbtn" data-gt="work" style="margin-top:10px">看每週工作量圖表</button>';
   $("#calc").innerHTML=`${gmMoney(inc)} ÷ ${gmMoney(per)} ＝ ${gmFmt(raw.deal)} → <b>成交 ${t.deal} 件</b><br>${gmFmt(raw.deal)} ÷ ${g.r.deal}% ＝ ${gmFmt(raw.prop)} → <b>建議書 ${t.prop} 份</b><br>${gmFmt(raw.prop)} ÷ ${g.r.prop}% ＝ ${gmFmt(raw.meet)} → <b>面談 ${t.meet} 場</b><br>${gmFmt(raw.meet)} ÷ ${g.r.meet}% ＝ ${gmFmt(raw.appt)} → <b>約訪 ${t.appt} 位</b><br>${gmFmt(raw.appt)} ÷ ${g.r.appt}% ＝ ${gmFmt(raw.list)} → <b>接觸名單 ${t.list} 位</b>`;
 }
@@ -1255,36 +1259,36 @@ function gmWeekChart(D,w,k,name,unit,target){
 function gmMonthChart(D,k,name,unit,target){
   let run=0;const data=D.daily[k].slice(0,D.day).map(v=>run+=v),n=D.last,W=640,H=240,L=34,R=16,T=30,B=30,pw=W-L-R,top=gmTop(Math.max(target*1.15,...data,1)),slot=pw/n,x=i=>L+slot*(i+.5);
   let{s,y,ph}=gmSvgBase(W,H,L,R,T,B,top,"ml-"+k,`${name}本月累積 ${run} ${unit}，本月目標 ${target} ${unit}`);
-  D.ranges.forEach(([a,b],w)=>{const x0=L+slot*(a-1);if(w)s+=`<line class="g-grid-l" x1="${x0.toFixed(1)}" x2="${x0.toFixed(1)}" y1="${T}" y2="${T+ph}"/>`;s+=`<text x="${(x0+slot*(b-a+1)/2).toFixed(1)}" y="${H-8}">第${w+1}週</text>`});
+  D.ranges.forEach(([a,b],w)=>{const x0=L+slot*(a-1);if(w)s+=`<line class="g-grid-l" x1="${x0.toFixed(1)}" x2="${x0.toFixed(1)}" y1="${T}" y2="${T+ph}"/>`;s+=`<text x="${(x0+slot*(b-a+1)/2).toFixed(1)}" y="${H-8}">${b-a>=2?gmWkLabel(D,w):""}</text>`});
   s+=`<line class="g-lc-t" x1="${L}" x2="${W-R}" y1="${y(target).toFixed(1)}" y2="${y(target).toFixed(1)}"/><polyline class="g-lc-a" points="${data.map((v,i)=>x(i).toFixed(1)+","+y(v).toFixed(1)).join(" ")}"/>`;
   data.forEach((v,i)=>{const end=D.ranges.some(r=>r[1]===i+1)||i===D.day-1;s+=`<circle class="${v>=target?"g-lc-h":"g-lc-m"}" cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${end?5:2.6}"/>`;if(end)s+=`<text class="g-val" x="${x(i).toFixed(1)}" y="${(y(v)-10).toFixed(1)}">${v}</text>`});
   return s+`</svg><div class="g-key" style="margin:6px 0 0"><span><i style="background:var(--gold)"></i>碰到本月目標</span><span><i style="background:var(--surface);border:2px solid var(--gold);box-sizing:border-box"></i>還沒碰到</span><span><i class="g-dash"></i>本月目標 ${target} ${unit}</span></div>`;
 }
 function gmViewMonthTable(t,D){
-  const hits=[0,1,2,3].map(i=>gmHit(t,D,i)),got=hits.filter(Boolean).length;
+  const hits=D.ranges.map((r,i)=>gmHit(t,D,i)),got=hits.filter(Boolean).length;
   const cell=(k,i)=>{const v=D.weekly[k][i],tg=gmWT(t,D,k)[i];return `<td class="g-mcell ${v>=tg&&tg>0?"g-y":""}">${v}<small> / ${tg}</small></td>`};
-  return `<div class="g-card"><h2>本月四週總覽</h2><p class="g-sub">每格是實際 / 當週目標，金色代表達標。合計是實際 / 本月目標。</p><div class="g-tw"><table id="month"><thead><tr><th>週次</th>${GM_STG.map(x=>`<th>${x[1]}</th>`).join("")}<th>得章</th></tr></thead><tbody>${[0,1,2,3].map(i=>`<tr class="${i===D.now?"g-cur":""}"><td><b>第 ${i+1} 週</b></td>${GM_STG.map(x=>cell(x[0],i)).join("")}<td>${hits[i]?'<span class="g-chk g-y">得章</span>':'<span class="g-chk g-n">—</span>'}</td></tr>`).join("")}<tr class="g-tot"><td><b>合計</b></td>${GM_STG.map(x=>`<td>${D.done[x[0]]}<small> / ${t[x[0]]}</small></td>`).join("")}<td><b>${got} 章</b></td></tr></tbody></table></div></div>`;
+  return `<div class="g-card"><h2>本月每週總覽</h2><p class="g-sub">每格是實際 / 當週目標，金色代表達標。合計是實際 / 本月目標。</p><div class="g-tw"><table id="month"><thead><tr><th>週次</th>${GM_STG.map(x=>`<th>${x[1]}</th>`).join("")}<th>得章</th></tr></thead><tbody>${D.ranges.map((r,i)=>`<tr class="${i===D.now?"g-cur":""}"><td><b>${gmWkLabel(D,i)}</b></td>${GM_STG.map(x=>cell(x[0],i)).join("")}<td>${hits[i]?'<span class="g-chk g-y">得章</span>':'<span class="g-chk g-n">—</span>'}</td></tr>`).join("")}<tr class="g-tot"><td><b>合計</b></td>${GM_STG.map(x=>`<td>${D.done[x[0]]}<small> / ${t[x[0]]}</small></td>`).join("")}<td><b>${got} 章</b></td></tr></tbody></table></div></div>`;
 }
 function gmSettle(t,D,idx){
   if(idx>D.now)return"";
   const row=([k,n,u])=>{const v=D.weekly[k][idx],tg=gmWT(t,D,k)[idx],ok=v>=tg&&tg>0,pv=idx?D.weekly[k][idx-1]:null,d=pv==null?"本月第一週":v-pv>0?`比前一週多 ${v-pv} ${u}`:v-pv<0?`比前一週少 ${pv-v} ${u}`:"和前一週一樣";return `<div class="g-srow"><b>${n}</b><span class="g-n2">${v} / ${tg}</span><small>${d}</small><span class="g-chk ${ok?"g-y":"g-n"}">${ok?"達標":`差 ${Math.max(0,tg-v)} ${u}`}</span></div>`};
-  const hits=[0,1,2,3].map(i=>gmHit(t,D,i)),hit=hits[idx],got=hits.filter(Boolean).length;
-  const stamp=(v,i)=>`<div><span class="g-seal ${v?"g-on":""}">${v?"達標":"—"}</span><span>第${i+1}週</span></div>`;
+  const hits=D.ranges.map((r,i)=>gmHit(t,D,i)),hit=hits[idx],got=hits.filter(Boolean).length;
+  const stamp=(v,i)=>`<div><span class="g-seal ${v?"g-on":""}">${v?"達標":"—"}</span><span>${gmWkLabel(D,i)}</span></div>`;
   const title=hit?"你得到 <em>1</em> 個章":"這週先累積，下週再來",sub=(hit?"接觸、約訪、面談都達標。":"接觸、約訪、面談還沒全部達標，這週不扣章。")+` 這週你服務了 <em>${D.fam[idx]}</em> 個家庭。`;
-  return `<div class="g-stack"><h2 class="g-sect">第 ${idx+1} 週結算</h2><div class="g-card"><div class="g-result"><span class="g-seal g-big ${hit?"g-on":""}">${hit?"達標":"累積"}</span><div><h2>${title}</h2><p>${sub}</p></div></div></div><div class="g-grid"><div class="g-card g-route"><h2>這週有沒有得章</h2><p class="g-sub">接觸、約訪、面談都達到自己的週目標，就得 1 章</p><div class="g-rows">${GM_STG.slice(0,3).map(row).join("")}</div></div><div class="g-card"><h2>本月集章</h2><p class="g-sub">接觸、約訪、面談都達到自己的週目標，就得 1 章</p><div class="g-stamps">${hits.map(stamp).join("")}</div><div class="g-reward"><b>本月達標 ${got} 週</b>每達標一週，就多一個獎章。</div></div></div></div>`;
+  return `<div class="g-stack"><h2 class="g-sect">${gmWkLabel(D,idx)} 結算</h2><div class="g-card"><div class="g-result"><span class="g-seal g-big ${hit?"g-on":""}">${hit?"達標":"累積"}</span><div><h2>${title}</h2><p>${sub}</p></div></div></div><div class="g-grid"><div class="g-card g-route"><h2>這週有沒有得章</h2><p class="g-sub">接觸、約訪、面談都達到自己的週目標，就得 1 章</p><div class="g-rows">${GM_STG.slice(0,3).map(row).join("")}</div></div><div class="g-card"><h2>本月集章</h2><p class="g-sub">接觸、約訪、面談都達到自己的週目標，就得 1 章</p><div class="g-stamps">${hits.map(stamp).join("")}</div><div class="g-reward"><b>本月達標 ${got} 週</b>每達標一週，就多一個獎章。</div></div></div></div>`;
 }
 function gmViewWork(g,D,ro){
   const{t,inc}=gmCalc(g);if(GM.work==null)GM.work=D.now;const w=GM.work;
   const tile=(n,v,goal,u)=>`<div class="g-tile"><span>${n}</span><b>${v}</b> <small>/ ${goal} ${u}</small></div>`;
-  const seg=`<div class="g-demoseg"><div class="g-seg" role="group" aria-label="選擇週次">${[0,1,2,3].map(i=>`<button type="button" data-w="${i}" aria-pressed="${w===i}">第 ${i+1} 週</button>`).join("")}<button type="button" data-w="month" aria-pressed="${w==="month"}">每月總覽</button></div></div>`;
-  const head=`<div class="g-card" style="padding-bottom:13px"><h2>${w==="month"?"本月工作量":`第 ${w+1} 週工作量`}</h2><p class="g-sub" style="margin-bottom:9px">不用另外填。新增一位客戶或寫一筆跟進紀錄，就算接觸一位；同一週同一位只算一次。</p><div class="g-stat" style="margin:0;align-items:center"><span>我的目標：本月賺 ${gmMoney(inc)}，成交 ${t.deal} 件</span>${ro?"":'<button type="button" class="g-mbtn" data-gt="goal">改目標</button>'}</div></div>`;
+  const seg=`<div class="g-demoseg"><div class="g-seg" role="group" aria-label="選擇週次">${D.ranges.map((r,i)=>`<button type="button" data-w="${i}" aria-pressed="${w===i}">${gmWkLabel(D,i)}</button>`).join("")}<button type="button" data-w="month" aria-pressed="${w==="month"}">每月總覽</button></div></div>`;
+  const head=`<div class="g-card" style="padding-bottom:13px"><h2>${w==="month"?"本月工作量":`${gmWkLabel(D,w)} 工作量`}</h2><p class="g-sub" style="margin-bottom:9px">不用另外填。新增一位客戶或寫一筆跟進紀錄，就算接觸一位；同一週同一位只算一次。</p><div class="g-stat" style="margin:0;align-items:center"><span>我的目標：本月賺 ${gmMoney(inc)}，成交 ${t.deal} 件</span>${ro?"":'<button type="button" class="g-mbtn" data-gt="goal">改目標</button>'}</div></div>`;
   const gapRows=f=>GM_STG.map(([k,n,u])=>{const gap=f(k);return `<div class="g-stat" style="margin:7px 0 0"><span>${n}</span><b>${gap>0?gap+" "+u:"達標"}</b></div>`}).join("");
   const lineSeg=`<div class="g-seg" role="group" aria-label="切換關卡" style="margin-bottom:8px">${GM_STG.map(([k,n])=>`<button type="button" data-l="${k}" aria-pressed="${GM.line===k}">${n}</button>`).join("")}</div>`;
   const info=GM_STG.find(x=>x[0]===GM.line);
   if(w==="month")return `<div class="g-stack">${seg}${head}<div class="g-tiles">${GM_STG.map(([k,n,u])=>tile(n,D.done[k],t[k],u)).join("")}</div><div class="g-grid"><div class="g-card"><h2>本月累積進度</h2><p class="g-sub">實線是到當天為止的累積數字，虛線是本月目標。大圓點是每週最後一天。點上方切換要看哪一關。</p>${lineSeg}${gmMonthChart(D,GM.line,info[1],info[2],t[GM.line])}</div><div class="g-card"><h2>本月還差</h2><p class="g-sub">看哪幾關已達標、哪幾關還差多少</p>${gapRows(k=>t[k]-D.done[k])}</div></div>${gmViewMonthTable(t,D)}</div>`;
   const wt=k=>gmWT(t,D,k)[w];
   const logs=D.ev.filter(e=>e.w===w).reverse().slice(0,10),logRow=e=>{const dt=new Date(D.y,D.m,+e.d.slice(8));const lab=GM_STG.find(x=>x[0]===e.k);const em=e.k!=="contact"&&e.k!=="new"&&e.k!=="renew"&&lab?lab[1]+" +1":e.first?"接觸 +1":"";return `<div class="g-log"><span>${GM_DAYS[dt.getDay()]}</span><span>${GM_KIND[e.k]||"更新"}</span><div>${esc(e.who||"")}：${esc(e.x)} <em>${em}</em></div></div>`};
-  return `<div class="g-stack">${seg}${head}<div class="g-tiles">${GM_STG.map(([k,n,u])=>tile(n,D.weekly[k][w],wt(k),u)).join("")}</div><div class="g-grid"><div class="g-card"><h2>第 ${w+1} 週累積進度</h2><p class="g-sub">實線是到當天為止的累積數字，虛線是這週目標。點上方切換要看哪一關。</p>${lineSeg}${gmWeekChart(D,w,GM.line,info[1],info[2],wt(GM.line))}</div><div class="g-card"><h2>這週還差</h2><p class="g-sub">看哪幾關已達標、哪幾關還差多少</p>${gapRows(k=>wt(k)-D.weekly[k][w])}</div></div><div class="g-card"><h2>第 ${w+1} 週工作內容</h2><p class="g-sub">自動記錄，最多列最近 10 筆</p>${logs.map(logRow).join("")||'<p class="g-sub" style="margin:0">這週還沒有紀錄</p>'}</div>${gmSettle(t,D,w)}</div>`;
+  return `<div class="g-stack">${seg}${head}<div class="g-tiles">${GM_STG.map(([k,n,u])=>tile(n,D.weekly[k][w],wt(k),u)).join("")}</div><div class="g-grid"><div class="g-card"><h2>${gmWkLabel(D,w)} 累積進度</h2><p class="g-sub">實線是到當天為止的累積數字，虛線是這週目標。點上方切換要看哪一關。</p>${lineSeg}${gmWeekChart(D,w,GM.line,info[1],info[2],wt(GM.line))}</div><div class="g-card"><h2>這週還差</h2><p class="g-sub">看哪幾關已達標、哪幾關還差多少</p>${gapRows(k=>wt(k)-D.weekly[k][w])}</div></div><div class="g-card"><h2>${gmWkLabel(D,w)} 工作內容</h2><p class="g-sub">自動記錄，最多列最近 10 筆</p>${logs.map(logRow).join("")||'<p class="g-sub" style="margin:0">這週還沒有紀錄</p>'}</div>${gmSettle(t,D,w)}</div>`;
 }
 function gmSave(){clearTimeout(GM.saveT);const el=$("#g-save");if(el)el.textContent="";GM.saveT=setTimeout(async()=>{const g=GM.draft;if(!g||!(+g.per>0))return;try{await backend.updateProfile(Ctx.user.uid,{goal:{income:+g.income||0,per:+g.per,r:{...g.r}},email:Ctx.user.email});const s=$("#g-save");if(s)s.textContent=" 已儲存。"}catch(e){toast(errMsg(e,"目標儲存失敗"))}},700)}
 document.addEventListener("click",e=>{
