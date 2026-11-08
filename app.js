@@ -1169,7 +1169,8 @@ function catCalc(dates,n,deal,now){
 }
 function catNow(){
   const dates=new Set(),t=today();let n=0,deal=false;
-  [...Ctx.my.values()].forEach(c=>arr(c.logs).forEach(l=>{if(!l.d)return;dates.add(l.d);if(l.d===t){n++;if(l.p==="deal"||l.p==="join")deal=true}}));
+  // 新增名單也算經營：建立日期和跟進紀錄都算
+  [...Ctx.my.values()].forEach(c=>{const cd=c.demo?"":gmCreated(c);if(cd){dates.add(cd);if(cd===t)n++}arr(c.logs).forEach(l=>{if(!l.d)return;dates.add(l.d);if(l.d===t){n++;if(l.p==="deal"||l.p==="join")deal=true}})});
   return catCalc(dates,n,deal,new Date());
 }
 let catLast="";
@@ -1213,8 +1214,11 @@ function gmCreated(c){const d=new Date(c.createdAt);return c.createdAt&&!isNaN(d
 function gmData(u){
   const now=new Date(),y=now.getFullYear(),m=now.getMonth(),last=new Date(y,m+1,0).getDate(),day=now.getDate();
   const from=ymd(new Date(y,m,1)),to=ymd(new Date(y,m,last)),inM=d=>d&&d>=from&&d<=to,ev=[];
-  // 週一到週日的日曆週，月初月底不滿一週的部分照實際天數
+  // 週一到週日的日曆週
   const ranges=[];for(let a=1;a<=last;){const wd=(new Date(y,m,a).getDay()+6)%7,b=Math.min(last,a+6-wd);ranges.push([a,b]);a=b+1}
+  // 月初、月底不滿 7 天的零頭併入相鄰的週
+  if(ranges.length>1&&ranges[0][1]-ranges[0][0]<6){ranges[1][0]=1;ranges.shift()}
+  if(ranges.length>1&&ranges[ranges.length-1][1]-ranges[ranges.length-1][0]<6){ranges[ranges.length-2][1]=last;ranges.pop()}
   const wkOf=n=>ranges.findIndex(([a,b])=>n>=a&&n<=b);
   gmClients(u).filter(c=>!isRec(c)).forEach(c=>{const cd=gmCreated(c);if(inM(cd))ev.push({d:cd,k:"new",cid:c.id,who:c.name,x:"新增名單"});arr(c.logs).forEach(l=>{if(inM(l.d))ev.push({d:l.d,k:l.p||"contact",cid:c.id,who:c.name,x:l.x||"",log:true})})});
   ev.sort((a,b)=>a.d.localeCompare(b.d));
@@ -1309,8 +1313,8 @@ function opsWeekStart(off){const d=new Date(),wd=(d.getDay()+6)%7;return ymd(new
 function opsStats(u){
   const mine=gmClients(u);
   const all=mine.flatMap(c=>arr(c.logs).map(l=>({...l,who:c.name,cid:c.id,rec:isRec(c)})));
-  const t=today(),dates=new Set(all.map(l=>l.d).filter(Boolean)),todayL=all.filter(l=>l.d===t);
-  const cat=catCalc(dates,todayL.length,todayL.some(l=>l.p==="deal"||l.p==="join"),new Date());
+  const t=today(),created=mine.map(gmCreated).filter(Boolean),dates=new Set([...all.map(l=>l.d).filter(Boolean),...created]),todayL=all.filter(l=>l.d===t);
+  const cat=catCalc(dates,todayL.length+created.filter(d=>d===t).length,todayL.some(l=>l.p==="deal"||l.p==="join"),new Date());
   // 工作量只算客戶名單；連續天數和招財貓客戶、增員都算
   const cl=all.filter(l=>!l.rec);mine.filter(c=>!isRec(c)).forEach(c=>{const d=gmCreated(c);if(d)cl.push({d,p:"new",cid:c.id})});
   const bucket=(from,to)=>{const L=cl.filter(l=>(l.d||"")>=from&&(!to||l.d<to)),n=k=>L.filter(l=>l.p===k).length;return{list:new Set(L.map(l=>l.cid)).size,appt:n("appt"),meet:n("meet"),prop:n("prop"),deal:n("deal")}};
