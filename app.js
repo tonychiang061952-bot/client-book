@@ -968,7 +968,7 @@ function renderLog(){
     <div class="f2"><div class="field"><div class="lab">下次聯絡日<em>選填，會同步更新</em></div><input class="inp" type="date" id="lg-n" value="${esc(c.nextDate||"")}"></div>
     <div class="field"><div class="lab">更新階段</div><select class="inp" id="lg-s">${STAGES.map(s=>`<option value="${s.k}" ${(c.stage||"lead")===s.k?"selected":""}>${s.t}</option>`).join("")}</select></div></div>
   </div>`)+
-  (logs.length?`<ul class="timeline">${logs.map(l=>`<li><div class="lt"><span class="num">${esc(l.d)}</span><span class="pill">${esc(l.t)}</span>${l.p&&l.p!=="contact"?`<span class="pill need">${esc(logStepLabel(l.p))}</span>`:""}${ro?"":`<button class="del" type="button" data-del="${esc(l.id)}" aria-label="刪除此筆">刪除</button>`}</div><div class="lx">${esc(l.x)}</div></li>`).join("")}</ul>`:`<p class="hint" style="text-align:center;padding:20px 0">${ro?"還沒有跟進紀錄。":"還沒有跟進紀錄。每次接觸後花 30 秒記下重點，下次聯絡就有話題。"}</p>`);
+  (logs.length?`<ul class="timeline">${logs.map(l=>`<li><div class="lt"><span class="num">${esc(l.d)}</span><span class="pill">${esc(l.t)}</span>${l.p&&l.p!=="contact"?`<span class="pill need">${esc(logStepLabel(l.p))}</span>`:""}${ro?"":`<button class="edit" type="button" data-edit="${esc(l.id)}" aria-label="修改此筆">修改</button><button class="del" type="button" data-del="${esc(l.id)}" aria-label="刪除此筆">刪除</button>`}</div><div class="lx">${esc(l.x)}</div></li>`).join("")}</ul>`:`<p class="hint" style="text-align:center;padding:20px 0">${ro?"還沒有跟進紀錄。":"還沒有跟進紀錄。每次接觸後花 30 秒記下重點，下次聯絡就有話題。"}</p>`);
   $("#dFoot").innerHTML=`<span class="msg">共 ${logs.length} 筆紀錄${ro?" ・ 唯讀檢視":""}</span>${ro?"":'<button class="btn primary" type="button" id="lgAdd">新增紀錄</button>'}`;
   if(ro)return;
   $("#lg-p").onchange=e=>{$("#lg-s").value=stageAfterStep(c.stage||"lead",e.target.value)};
@@ -980,7 +980,31 @@ function renderLog(){
     $("#lgAdd").disabled=true;
     if(await saveClient(c2)){S.draft=c2;toast("已記錄");renderDrawer()}else $("#lgAdd").disabled=false;
   };
+  $("#dBody").querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openLogEdit(b.dataset.edit));
   $("#dBody").querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>showConfirm("刪除這筆紀錄？","刪除後無法復原。","刪除",async()=>{const c2=JSON.parse(JSON.stringify(S.draft));c2.logs=arr(c2.logs).filter(l=>l.id!==b.dataset.del);if(await saveClient(c2)){S.draft=c2;renderDrawer()}},true));
+}
+
+function openLogEdit(id){
+  const c=S.draft,l=arr(c.logs).find(x=>x.id===id);if(!l)return;
+  const base=isRec(c)?[IG_TOUCH,...LOG_TYPES]:LOG_TYPES,types=base.includes(l.t)?base:[l.t,...base];
+  const step=l.p||"contact";
+  $("#modalRoot").innerHTML=`<div class="modal" role="dialog" aria-modal="true"><div class="modal-box"><h3>修改跟進紀錄</h3>
+    <div class="f2"><div class="field"><div class="lab">日期</div><input class="inp" type="date" id="le-d" value="${esc(l.d||"")}"></div>
+    <div class="field"><div class="lab">方式</div><select class="inp" id="le-t">${types.map(t=>`<option ${t===l.t?"selected":""}>${esc(t)}</option>`).join("")}</select></div></div>
+    <div class="field"><div class="lab">內容</div><textarea class="inp" id="le-x" rows="5">${esc(l.x||"")}</textarea></div>
+    <div class="field"><div class="lab">這次做到哪裡${isRec(c)?"":"<em>會計入工作量</em>"}</div><select class="inp" id="le-p">${LOG_STEPS.map(([k,t])=>`<option value="${k}" ${k===step?"selected":""}>${t}</option>`).join("")}</select></div>
+    <div class="modal-actions"><button class="btn" type="button" id="leNo">取消</button><button class="btn primary" type="button" id="leOk">儲存修改</button></div></div></div>`;
+  $("#leNo").onclick=()=>$("#modalRoot").innerHTML="";
+  $("#leOk").onclick=async()=>{
+    const x=$("#le-x").value.trim();if(!x){toast("請填寫紀錄內容");$("#le-x").focus();return}
+    const c2=JSON.parse(JSON.stringify(S.draft)),t=arr(c2.logs).find(y=>y.id===id);
+    if(!t){$("#modalRoot").innerHTML="";toast("這筆紀錄已不存在");return}
+    const d=$("#le-d").value||t.d,moved=d!==t.d;
+    Object.assign(t,{d,t:$("#le-t").value,p:$("#le-p").value,x});
+    if(moved)c2.lastContact=arr(c2.logs).map(y=>y.d||"").sort().pop()||"";
+    $("#leOk").disabled=true;
+    if(await saveClient(c2)){$("#modalRoot").innerHTML="";S.draft=c2;toast("已修改");renderDrawer()}else $("#leOk").disabled=false;
+  };
 }
 
 /* ---------- modal + toast ---------- */
